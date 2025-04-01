@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload IFC-Modell</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow-md py-4 px-6 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-green-600">IFC Reuse Platform</h1>
+        <nav class="space-x-4">
+            <a href="index.html" class="text-gray-600 hover:text-green-600">Home</a>
+            <a href="catalog.html" class="text-gray-600 hover:text-green-600">Catalog</a>
+            <a href="api.html" class="text-gray-600 hover:text-green-600">API</a>
+        </nav>
+    </header>
+
+    <section class="max-w-lg mx-auto mt-12 bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-2xl font-bold text-gray-800 text-center">Upload IFC-Modell</h2>
+        <p class="text-gray-600 text-center">Upload your IFC file to extract reusable components.</p>
+
+        <form id="uploadForm" class="mt-4" enctype="multipart/form-data">
+            <label class="block text-gray-700 font-semibold">Project name:</label>
+            <input type="text" name="projectName" class="w-full border p-2 rounded mt-1" placeholder="Enter project name">
+
+            <label class="block text-gray-700 font-semibold mt-4">Location:</label>
+            <input type="text" name="location" class="w-full border p-2 rounded mt-1" placeholder="e.g. Augsburg, DE" required />
+
+
+            <label class="block text-gray-700 font-semibold mt-4">Upload IFC-Datei:</label>
+            <input type="file" name="file" class="w-full border p-2 rounded mt-1" required>
+
+            <button type="submit" class="w-full mt-4 bg-green-600 text-white py-2 rounded">📤 Upload</button>
+        </form>
+    </section>
+
+    <script>
+      const form = document.getElementById('uploadForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(form); // ⬅️ This includes projectName + location + file
+
+    try {
+      const response = await fetch("{% url 'upload' %}", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      console.log("✅ IFC Metadata:", result);
+      alert(result.message + " for: " + result.data.filename);
+    } catch (error) {
+      alert("Upload failed. Is the FastAPI server running?");
+    }
+  });
+    </script>
+
+</body>
+</html>
