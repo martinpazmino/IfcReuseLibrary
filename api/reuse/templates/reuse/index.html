@@ -1,6 +1,9 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="de">
+<!DOCTYPE html>
+<html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,39 +33,42 @@
         </p>
     </section>
 
-    <!-- Search -->
+    <!-- Suchfeld -->
     <div class="mt-6 flex justify-center">
         <input type="text" placeholder="Search by material, size, location..."
             class="w-1/2 border border-gray-300 rounded-lg p-2">
         <button class="ml-2 bg-green-600 text-white px-4 py-2 rounded-lg">🔍</button>
     </div>
 
-    <!-- Features -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 px-6">
-        <a href="{% url 'upload' %}" class="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <span class="text-blue-500 text-4xl">📤</span>
-            <h3 class="text-lg font-semibold mt-2">Upload IFC file</h3>
-            <p class="text-gray-500">
-                Upload your IFC file and extract reusable components.
-            </p>
-        </a>
+	<!-- Features -->
+	<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 px-6">
 
-        <a href="{% url 'catalog' %}" class="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <span class="text-green-500 text-4xl">📑</span>
-            <h3 class="text-lg font-semibold mt-2">Component catalog</h3>
-            <p class="text-gray-500">
-                Search the stock of reusable components.
-            </p>
-        </a>
+		<a href="{% url 'upload' %}" class="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
+			<span class="text-blue-500 text-4xl">📤</span>
+			<h3 class="text-lg font-semibold mt-2">Upload IFC file</h3>
+			<p class="text-gray-500">
+				Upload your IFC file and extract reusable components.
+			</p>
+		</a>
 
-        <a href="{% url 'api' %}" class="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <span class="text-orange-500 text-4xl">🔗</span>
-            <h3 class="text-lg font-semibold mt-2">API access</h3>
-            <p class="text-gray-500">
-                Use our API to integrate components into your design.
-            </p>
-        </a>
-    </div>
+		<a href="{% url 'catalog' %}" class="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
+			<span class="text-green-500 text-4xl">📑</span>
+			<h3 class="text-lg font-semibold mt-2">Component catalog</h3>
+			<p class="text-gray-500">
+				Search the stock of reusable components.
+			</p>
+		</a>
+
+		<a href="{% url 'api' %}" class="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
+			<span class="text-orange-500 text-4xl">🔗</span>
+			<h3 class="text-lg font-semibold mt-2">API access</h3>
+			<p class="text-gray-500">
+				Use our API to integrate components into your design.
+			</p>
+		</a>
+
+	</div>
+
 
 </body>
 </html>

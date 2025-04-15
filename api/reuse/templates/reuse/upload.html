@@ -1,8 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="de">
-<!DOCTYPE html>
-<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +9,7 @@
 </head>
 <body class="bg-gray-100">
 
+    <!-- Navbar -->
     <header class="bg-white shadow-md py-4 px-6 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-green-600">IFC Reuse Platform</h1>
         <nav class="space-x-4">
@@ -20,17 +19,17 @@
         </nav>
     </header>
 
+    <!-- Upload Form -->
     <section class="max-w-lg mx-auto mt-12 bg-white p-6 rounded-lg shadow-lg">
         <h2 class="text-2xl font-bold text-gray-800 text-center">Upload IFC-Modell</h2>
         <p class="text-gray-600 text-center">Upload your IFC file to extract reusable components.</p>
 
         <form id="uploadForm" class="mt-4" enctype="multipart/form-data">
             <label class="block text-gray-700 font-semibold">Project name:</label>
-            <input type="text" name="projectName" class="w-full border p-2 rounded mt-1" placeholder="Enter project name">
+            <input type="text" name="projectName" class="w-full border p-2 rounded mt-1" placeholder="Enter project name" required>
 
             <label class="block text-gray-700 font-semibold mt-4">Location:</label>
-            <input type="text" name="location" class="w-full border p-2 rounded mt-1" placeholder="e.g. Augsburg, DE" required />
-
+            <input type="text" name="location" class="w-full border p-2 rounded mt-1" placeholder="e.g. Augsburg, DE" required>
 
             <label class="block text-gray-700 font-semibold mt-4">Upload IFC-Datei:</label>
             <input type="file" name="file" class="w-full border p-2 rounded mt-1" required>
@@ -39,27 +38,37 @@
         </form>
     </section>
 
+    <!-- JS to Send Form to FastAPI -->
     <script>
-      const form = document.getElementById('uploadForm');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+const form = document.getElementById("uploadForm");
 
-    const formData = new FormData(form); // ⬅️ This includes projectName + location + file
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-    try {
-      const response = await fetch("{% url 'upload' %}", {
-        method: "POST",
-        body: formData,
-      });
+  const formData = new FormData(form);
 
-      const result = await response.json();
-      console.log("✅ IFC Metadata:", result);
-      alert(result.message + " for: " + result.data.filename);
-    } catch (error) {
-      alert("Upload failed. Is the FastAPI server running?");
+  try {
+    const response = await fetch("http://127.0.0.1:8000/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    // Make sure result contains expected fields before using
+    if (result.message && result.data?.filename) {
+      alert(`${result.message} for: ${result.data.filename}`);
+    } else {
+      console.log("DEBUG: Result did not contain expected fields", result);
+      alert("Upload succeeded but response format was unexpected.");
     }
-  });
-    </script>
+
+  } catch (error) {
+    console.error("Upload failed:", error);
+    alert("❌ Upload failed. Is the FastAPI server running?");
+  }
+});
+</script>
 
 </body>
 </html>
