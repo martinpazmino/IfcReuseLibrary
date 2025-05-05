@@ -1,0 +1,20 @@
+<!-- projects/templates/projects/upload_ifc.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload IFC File</title>
+</head>
+<body>
+    <h2>Upload IFC File</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>

@@ -1,15 +1,20 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
 import shutil
 import ifcopenshell
+from datetime import datetime
+from pydantic import BaseModel
+from typing import List
+
+from api.database import SessionLocal, Project, User  # Add User model
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://127.0.0.1:8080"],  # ✅ Corrected key
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,42 +30,94 @@ async def upload_ifc_file(
     projectName: str = Form(...),
     location: str = Form(...)
 ):
-    # Save IFC to disk
-    file_path = os.path.join(BUCKET_FOLDER, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        # Save file
+        file_path = os.path.join(BUCKET_FOLDER, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    # Parse the file (same as before)
-    model = ifcopenshell.open(file_path)
-    summary = {
-        "filename": file.filename,
-        "walls": len(model.by_type("IfcWall")),
-        "windows": len(model.by_type("IfcWindow")),
-        "slabs": len(model.by_type("IfcSlab")),
-        "beams": len(model.by_type("IfcBeam")),
-        "columns": len(model.by_type("IfcColumn")),
-        "doors": len(model.by_type("IfcDoor")),
-        "spaces": len(model.by_type("IfcSpace")),
-    }
+        # Parse IFC
+        model = ifcopenshell.open(file_path)
+        summary = {
+            "filename": file.filename,
+            "walls": len(model.by_type("IfcWall")),
+            "windows": len(model.by_type("IfcWindow")),
+            "slabs": len(model.by_type("IfcSlab")),
+            "beams": len(model.by_type("IfcBeam")),
+            "columns": len(model.by_type("IfcColumn")),
+            "doors": len(model.by_type("IfcDoor")),
+            "spaces": len(model.by_type("IfcSpace")),
+        }
 
-    # Save Project to DB with location
-    db = SessionLocal()
-    project = Project(
-        user_id="mock-user-id",  # You can change this later
-        name=projectName,
-        description="Uploaded via form",
-        location=location
-    )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+        # DB logic
+        db = SessionLocal()
 
-    db.close()
+        # ✅ Ensure mock-user exists
+        user = db.query(User).filter_by(id="mock-user-id").first()
+        if not user:
+            user = User(
+                id="mock-user-id",
+                name="Mock User",
+                email="mock@example.com",
+                password_hash="hash",
+                created_at=datetime.utcnow()
+            )
+            db.add(user)
+            db.commit()
 
-    return {
-        "message": "IFC file uploaded and parsed successfully",
-        "data": summary
-    }
+        # Save project
+        project = Project(
+            user_id="mock-user-id",
+            name=projectName,
+            description="Uploaded via form",
+            location=location
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+        db.close()
+
+        return {
+            "message": "IFC file uploaded and parsed successfully",
+            "data": summary
+        }
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+
+class Component(BaseModel):
+    id: int
+    name: str
+    type: str
+
+class Project(BaseModel):
+    id: int
+    name: str
+    components: List[Component]
+
+# Beispiel-Daten
+projects = [
+    Project(
+        id=1,
+        name="Project Alpha",
+        components=[
+            Component(id=1, name="Beam", type="Structural"),
+            Component(id=2, name="Column", type="Structural")
+        ]
+    ),
+    Project(
+        id=2,
+        name="Project Beta",
+        components=[
+            Component(id=3, name="Wall", type="Architectural")
+        ]
+    )
+]
+
+@app.get("/projects/")
+def get_projects():
+    return [...]

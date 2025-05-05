@@ -1,0 +1,110 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API-Zugang</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #2d3748;
+            min-width: 150px;
+            z-index: 1;
+        }
+        .dropdown:hover .dropdown-content {
+            display: none;
+        }
+        .dropdown.active .dropdown-content {
+            display: block;
+        }
+    </style>
+
+    <script>
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            document.querySelector('.dropdown').classList.toggle('active');
+        }
+        document.addEventListener('click', () => {
+            const dropdown = document.querySelector('.dropdown');
+            if (dropdown) dropdown.classList.remove('active');
+        });
+    </script>
+</head>
+
+<body class="bg-gray-900 text-[#F1FAEE] h-full flex flex-col">
+
+  <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center space-x-4">
+      <img src="{% static 'images/logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+      <nav class="flex space-x-4 ml-4 text-lg">
+        <a href="{% url 'home' %}"    class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+        <a href="{% url 'catalog' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
+        <a href="{% url 'upload_page' %}"  class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
+        <a href="{% url 'api' %}"     class="text-[#4CAF50] font-semibold">API</a>
+        <a href="{% url 'about' %}"   class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+      </nav>
+    </div>
+    <div class="dropdown relative">
+      <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50]">
+        👤 Benutzer
+      </button>
+      <div class="dropdown-content bg-gray-700 rounded shadow-lg">
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow">
+    <section class="max-w-2xl mx-auto mt-12 bg-gray-800 p-6 rounded-lg shadow-lg">
+      <h2 class="text-2xl font-bold text-[#F1FAEE] text-center">API-Zugang</h2>
+      <p class="text-gray-400 text-center mb-6">
+        Nutze unsere API, um IFC-Daten in deine Anwendungen zu integrieren.
+      </p>
+
+      <h3 class="text-lg font-semibold mt-4">Beispiel-Endpunkt:</h3>
+      <div class="bg-gray-700 p-3 rounded my-2">
+        <code class="text-[#F1FAEE]">GET /api/components?type=door</code>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-4">Antwort:</h3>
+      <pre class="bg-gray-700 p-3 rounded text-sm text-[#F1FAEE]">
+{
+    "id": 123,
+    "name": "Holztür",
+    "dimensions": "90x200cm",
+    "location": "Hamburg"
+}
+      </pre>
+
+      <div class="text-center">
+        <button class="mt-6 bg-[#4CAF50] text-white px-6 py-2 rounded">
+          API testen
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-gray-800 text-[#F1FAEE] py-4 mt-auto">
+    <div class="container mx-auto px-4 text-center">
+      <h3 class="text-lg font-bold mb-2">Kontakt</h3>
+      <div class="space-y-1 text-sm">
+        <p>E-Mail: <a href="mailto:kontakt@ifc-reuse.com" class="text-[#4CAF50] hover:underline">kontakt@ifc-reuse.com</a></p>
+        <p>Adresse: An d. Hochschule 1, 86161 Augsburg</p>
+        <p>Telefon: 0821 55860</p>
+        <p>Öffnungszeiten: Mo–Fr 9:00–17:00</p>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">&copy; 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

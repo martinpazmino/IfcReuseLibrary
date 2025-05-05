@@ -1,0 +1,40 @@
+<!-- projects/templates/projects/project_list.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project List</title>
+</head>
+<body>
+    <h2>Projects</h2>
+
+    {# Display fetch error if it exists #}
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    {# Display any Django messages #}
+    {% if messages %}
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+
+    {# Display the projects if available #}
+    {% if projects %}
+        <ul>
+        {% for project in projects %}
+            <li>
+                <h3>{{ project.name }}</h3>
+                <ul>
+                    {% for component in project.components %}
+                        <li>{{ component.name }} ({{ component.type }})</li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No projects available.</p>
+    {% endif %}
+</body>
+</html>

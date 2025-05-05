@@ -1,0 +1,139 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de" class="min-h-screen flex flex-col bg-gray-900 text-[#F1FAEE]">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IFC-Modell hochladen</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background-color: #2d3748;
+      min-width: 150px;
+      z-index: 1;
+    }
+    .dropdown.active .dropdown-content {
+      display: block;
+    }
+  </style>
+  <script>
+    function toggleDropdown(event) {
+      event.stopPropagation();
+      document.querySelector('.dropdown').classList.toggle('active');
+    }
+    document.addEventListener('click', () => {
+      const dd = document.querySelector('.dropdown');
+      if (dd) dd.classList.remove('active');
+    });
+  </script>
+</head>
+
+<body class="flex flex-col flex-grow">
+  <!-- Header -->
+  <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center space-x-4">
+      <img src="{% static 'images/logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+      <nav class="flex space-x-4 ml-4 text-lg">
+        <a href="{% url 'home' %}"         class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+        <a href="{% url 'catalog' %}"      class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
+        <a href="{% url 'upload_page' %}"  class="text-[#4CAF50] font-semibold">Upload</a>
+        <a href="{% url 'api' %}"          class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
+        <a href="{% url 'about' %}"        class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+      </nav>
+    </div>
+    <div class="dropdown relative">
+      <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50]">
+        👤 Benutzer
+      </button>
+      <div class="dropdown-content bg-gray-700 rounded shadow-lg">
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Upload Form -->
+  <section class="max-w-lg mx-auto mt-12 bg-gray-800 p-6 rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold text-[#F1FAEE] text-center">IFC-Modell hochladen</h2>
+    <p class="text-gray-400 text-center">Lade deine IFC-Datei hoch, um wiederverwendbare Bauteile zu extrahieren.</p>
+
+    <form id="uploadForm" class="mt-4" enctype="multipart/form-data">
+      <label class="block text-[#F1FAEE] font-semibold">Projektname:</label>
+      <input
+        type="text"
+        name="projectName"
+        class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1"
+        placeholder="Projektname eingeben"
+        required
+      >
+
+      <label class="block text-[#F1FAEE] font-semibold mt-4">Location:</label>
+      <input
+        type="text"
+        name="location"
+        class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1"
+        placeholder="z. B. Augsburg, DE"
+        required
+      >
+
+      <label class="block text-[#F1FAEE] font-semibold mt-4">IFC-Datei hochladen:</label>
+      <input
+        type="file"
+        name="file"
+        class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1"
+        required
+      >
+
+      <button
+        type="submit"
+        class="w-full mt-4 bg-[#4CAF50] text-white py-2 rounded hover:bg-[#45a049] transition"
+      >
+        📤 Hochladen
+      </button>
+    </form>
+  </section>
+
+  <!-- JS to send to FastAPI -->
+  <script>
+    const form = document.getElementById("uploadForm");
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const data = new FormData(form);
+      try {
+        const res = await fetch("http://127.0.0.1:8001/upload", {
+          method: "POST",
+          body: data
+        });
+        const result = await res.json();
+        if (result.message && result.data?.filename) {
+          alert(`${result.message} für: ${result.data.filename}`);
+        } else {
+          alert("Upload erfolgreich, aber Antwort-Format unerwartet.");
+          console.log(result);
+        }
+      } catch(err) {
+        console.error(err);
+        alert("❌ Upload fehlgeschlagen. Läuft der FastAPI-Server?");
+      }
+    });
+  </script>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-[#F1FAEE] py-4 mt-auto">
+    <div class="container mx-auto px-4 text-center">
+      <h3 class="text-lg font-bold mb-2">Kontakt</h3>
+      <div class="space-y-1 text-sm">
+        <p>E-Mail: <a href="mailto:kontakt@ifc-reuse.com" class="text-[#4CAF50] hover:underline">kontakt@ifc-reuse.com</a></p>
+        <p>Adresse: An d. Hochschule 1, 86161 Augsburg</p>
+        <p>Telefon: 0821 55860</p>
+        <p>Öffnungszeiten: Mo–Fr 9:00–17:00</p>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">&copy; 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
+    </div>
+  </footer>
+</body>
+</html>

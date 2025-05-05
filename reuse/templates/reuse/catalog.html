@@ -1,0 +1,112 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de" class="flex flex-col min-h-screen bg-gray-900 text-[#F1FAEE]">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bauteil-Katalog</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background-color: #2d3748;
+      min-width: 150px;
+      z-index: 1;
+    }
+    .dropdown.active .dropdown-content {
+      display: block;
+    }
+  </style>
+  <script>
+    function toggleDropdown(event) {
+      event.stopPropagation();
+      document.querySelector('.dropdown').classList.toggle('active');
+    }
+    document.addEventListener('click', () => {
+      const dd = document.querySelector('.dropdown');
+      if (dd) dd.classList.remove('active');
+    });
+  </script>
+</head>
+<body class="flex flex-col flex-grow">
+
+  <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center space-x-4">
+      <img src="{% static 'images/logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+      <nav class="flex space-x-4 ml-4 text-lg">
+        <a href="{% url 'home' %}"           class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+        <a href="{% url 'catalog' %}"        class="text-[#4CAF50] font-semibold">Katalog</a>
+        <a href="{% url 'upload_page' %}"    class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
+        <a href="{% url 'api' %}"            class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
+        <a href="{% url 'about' %}"          class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+      </nav>
+    </div>
+    <div class="dropdown relative">
+      <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50]">👤 Benutzer</button>
+      <div class="dropdown-content bg-gray-700 rounded shadow-lg">
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow">
+    <section class="text-center mt-12 px-4">
+      <h2 class="text-4xl font-bold text-[#F1FAEE]">Bauteil-Katalog</h2>
+      <p class="text-gray-400 mt-2">
+        Durchsuche wiederverwendbare Bauteile nach Material, Größe oder Standort.
+      </p>
+    </section>
+
+    <div class="mt-6 flex justify-center px-4">
+      <form method="get" action="">
+        <input
+          type="text"
+          name="q"
+          placeholder="Suche nach Bauteilen…"
+          class="w-64 md:w-1/2 border border-gray-600 bg-gray-800 text-[#F1FAEE] p-2 rounded"
+        >
+        <button type="submit" class="ml-2 bg-[#4CAF50] text-white px-4 py-2 rounded">
+          🔍 Suchen
+        </button>
+      </form>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 px-6 mb-12">
+      <div class="bg-gray-800 shadow-md rounded-xl p-6 text-center">
+        <span class="text-blue-400 text-4xl">🏗️</span>
+        <h3 class="text-lg font-semibold mt-2">Betonträger</h3>
+        <p class="text-gray-400">Länge: 6 m | Standort: Berlin</p>
+      </div>
+      <div class="bg-gray-800 shadow-md rounded-xl p-6 text-center">
+        <span class="text-yellow-400 text-4xl">🪵</span>
+        <h3 class="text-lg font-semibold mt-2">Holzbalken</h3>
+        <p class="text-gray-400">Länge: 4 m | Standort: München</p>
+      </div>
+      <div class="bg-gray-800 shadow-md rounded-xl p-6 text-center">
+        <span class="text-gray-400 text-4xl">🧱</span>
+        <h3 class="text-lg font-semibold mt-2">Ziegelsteine</h3>
+        <p class="text-gray-400">Menge: 500 Stück | Standort: Hamburg</p>
+      </div>
+      {# Später kannst du hier mit Django-Template-Tags über deine Bauteile iterieren #}
+    </div>
+  </main>
+
+  <footer class="bg-gray-800 text-[#F1FAEE] py-4">
+    <div class="container mx-auto px-4 text-center">
+      <h3 class="text-lg font-bold mb-2">Kontakt</h3>
+      <div class="space-y-1 text-sm">
+        <p>E-Mail: <a href="mailto:kontakt@ifc-reuse.com" class="text-[#4CAF50] hover:underline">kontakt@ifc-reuse.com</a></p>
+        <p>Adresse: An d. Hochschule 1, 86161 Augsburg</p>
+        <p>Telefon: 0821 55860</p>
+        <p>Öffnungszeiten: Mo–Fr 9:00–17:00</p>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">&copy; 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
