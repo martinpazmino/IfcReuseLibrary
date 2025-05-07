@@ -1,13 +1,10 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import os
-import shutil
+import shutil, os, uuid
 import ifcopenshell
 from datetime import datetime
-from pydantic import BaseModel
-from typing import List
-
+from .database import SessionLocal, User, Project, Component
 from api.database import SessionLocal, Project, User  # Add User model
 
 app = FastAPI()
@@ -31,28 +28,29 @@ async def upload_ifc_file(
     location: str = Form(...)
 ):
     try:
-        # Save file
-        file_path = os.path.join(BUCKET_FOLDER, file.filename)
+        # 🔹 Save file
+        os.makedirs(BUCKET_FOLDER, exist_ok=True)
+        file_id = f"{uuid.uuid4()}_{file.filename}"
+        file_path = os.path.join(BUCKET_FOLDER, file_id)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Parse IFC
+        # 🔹 Parse IFC components
         model = ifcopenshell.open(file_path)
-        summary = {
-            "filename": file.filename,
-            "walls": len(model.by_type("IfcWall")),
-            "windows": len(model.by_type("IfcWindow")),
-            "slabs": len(model.by_type("IfcSlab")),
-            "beams": len(model.by_type("IfcBeam")),
-            "columns": len(model.by_type("IfcColumn")),
-            "doors": len(model.by_type("IfcDoor")),
-            "spaces": len(model.by_type("IfcSpace")),
-        }
+        component_types = ["IfcWall", "IfcWindow", "IfcSlab", "IfcBeam", "IfcColumn", "IfcDoor", "IfcSpace"]
+        parsed_components = []
 
-        # DB logic
+        for comp_type in component_types:
+            for item in model.by_type(comp_type):
+                parsed_components.append({
+                    "name": item.Name or f"Unnamed {comp_type}",
+                    "type": comp_type
+                })
+
+        # 🔹 Save project and components
         db = SessionLocal()
 
-        # ✅ Ensure mock-user exists
+        # Mock user logic (keep for now)
         user = db.query(User).filter_by(id="mock-user-id").first()
         if not user:
             user = User(
@@ -65,7 +63,6 @@ async def upload_ifc_file(
             db.add(user)
             db.commit()
 
-        # Save project
         project = Project(
             user_id="mock-user-id",
             name=projectName,
@@ -75,49 +72,49 @@ async def upload_ifc_file(
         db.add(project)
         db.commit()
         db.refresh(project)
+
+        # 🔹 Save components
+        for comp in parsed_components:
+            db.add(Component(
+                name=comp["name"],
+                type=comp["type"],
+                project_id=project.id
+            ))
+
+        db.commit()
         db.close()
 
         return {
-            "message": "IFC file uploaded and parsed successfully",
-            "data": summary
+            "message": "IFC file uploaded and components stored",
+            "data": {
+                "project_id": project.id,
+                "project_name": project.name,
+                "components": parsed_components
+            }
         }
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-
-class Component(BaseModel):
-    id: int
-    name: str
-    type: str
-
-class Project(BaseModel):
-    id: int
-    name: str
-    components: List[Component]
-
-# Beispiel-Daten
-projects = [
-    Project(
-        id=1,
-        name="Project Alpha",
-        components=[
-            Component(id=1, name="Beam", type="Structural"),
-            Component(id=2, name="Column", type="Structural")
-        ]
-    ),
-    Project(
-        id=2,
-        name="Project Beta",
-        components=[
-            Component(id=3, name="Wall", type="Architectural")
-        ]
-    )
-]
-
 @app.get("/projects/")
 def get_projects():
-    return [...]
+    db = SessionLocal()
+    projects = db.query(Project).all()
+    result = []
+    for p in projects:
+        result.append({
+            "id": p.id,
+            "name": p.name,
+            "location": p.location,
+            "components": [{"name": c.name, "type": c.type} for c in p.components]
+        })
+    db.close()
+    return result
+
+@app.get("/uploads/ifc-bucket")
+def serve_file(filename: str):
+    file_path = os.path.join("uploads", "ifc-bucket", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return {"error": "File not found"}
