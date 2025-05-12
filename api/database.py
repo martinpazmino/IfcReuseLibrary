@@ -39,9 +39,12 @@ class Component(Base):
     __tablename__ = "components"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String, ForeignKey("projects.id"))
+    category = Column(String)
+    subcategory = Column(String)
     type = Column(String)
     name = Column(String)
     material = Column(String)
+    location = Column(String)
     dimensions = Column(JSON)
     quantity = Column(Integer)
     reuse_flag = Column(Boolean, default=True)
@@ -52,3 +55,5 @@ class Component(Base):
 # -- Call this to create all tables
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
+

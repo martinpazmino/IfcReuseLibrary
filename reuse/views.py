@@ -4,7 +4,8 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 import os
 import requests
-
+from .models import Category, Subcategory, Material
+from api.database import SessionLocal, Component
 
 # 🔹 Views to render pages
 def home(request):
@@ -57,3 +58,45 @@ def project_list(request):
         return render(request, "reuse/project_list.html", {"projects": projects, "error": error})
 
     return render(request, "reuse/project_list.html", {"projects": projects})
+
+# views.py
+from .models import Category, Subcategory
+
+def catalog(request):
+    # Load filters from GET
+    selected_category = request.GET.get('category')
+    selected_subcategory = request.GET.get('subcategory')
+    selected_material = request.GET.get('material') or request.GET.get('material_other')
+    location = request.GET.get('location')
+    reuse_only = request.GET.get('reuse_only') == 'on'
+
+    db = SessionLocal()
+    query = db.query(Component)
+
+    if selected_category:
+        query = query.filter(Component.category == selected_category)
+    if selected_subcategory:
+        query = query.filter(Component.subcategory == selected_subcategory)
+    if selected_material:
+        query = query.filter(Component.material.ilike(f"%{selected_material}%"))
+    if location:
+        query = query.filter(Component.location.ilike(f"%{location}%"))
+    if reuse_only:
+        query = query.filter(Component.reuse_flag == True)
+
+    components = query.all()
+    db.close()
+
+    return render(request, 'reuse/catalog.html', {
+        'categories': Category.objects.all(),
+        'subcategories': Subcategory.objects.all(),
+        'materials': Material.objects.all(),
+        'components': components,
+        'selected': {
+            'category': selected_category,
+            'subcategory': selected_subcategory,
+            'material': selected_material,
+            'location': location,
+            'reuse_only': reuse_only
+        }
+    })

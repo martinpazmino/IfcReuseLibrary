@@ -75,24 +75,100 @@
       </form>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 px-6 mb-12">
-      <div class="bg-gray-800 shadow-md rounded-xl p-6 text-center">
-        <span class="text-blue-400 text-4xl">🏗️</span>
-        <h3 class="text-lg font-semibold mt-2">Betonträger</h3>
-        <p class="text-gray-400">Länge: 6 m | Standort: Berlin</p>
+<!-- Kategorie (Checkboxen), Unterkategorie, Material, Standort -->
+<div class="mt-10 px-6">
+  <form method="GET" action="">
+    <div class="grid md:grid-cols-3 gap-6 bg-gray-800 p-6 rounded-lg shadow-lg">
+
+      <!-- Kategorie -->
+      <div>
+        <label class="block text-[#F1FAEE] font-semibold mb-2">Kategorie</label>
+        <div class="space-y-2 bg-gray-700 p-3 rounded">
+          {% for category in categories %}
+            <label class="inline-flex items-center text-white">
+              <input type="checkbox" name="category" value="{{ category.name }}" class="mr-2"> {{ category.name }}
+            </label><br>
+          {% endfor %}
+        </div>
       </div>
-      <div class="bg-gray-800 shadow-md rounded-xl p-6 text-center">
-        <span class="text-yellow-400 text-4xl">🪵</span>
-        <h3 class="text-lg font-semibold mt-2">Holzbalken</h3>
-        <p class="text-gray-400">Länge: 4 m | Standort: München</p>
+
+      <!-- Unterkategorie -->
+      <div>
+        <label class="block text-[#F1FAEE] font-semibold mb-2">Unterkategorie</label>
+        <select name="subcategory" class="w-full bg-gray-700 text-white p-2 rounded">
+          <option value="">-- Bitte wählen --</option>
+          {% for sub in subcategories %}
+            <option value="{{ sub.name }}">{{ sub.name }}</option>
+          {% endfor %}
+        </select>
       </div>
-      <div class="bg-gray-800 shadow-md rounded-xl p-6 text-center">
-        <span class="text-gray-400 text-4xl">🧱</span>
-        <h3 class="text-lg font-semibold mt-2">Ziegelsteine</h3>
-        <p class="text-gray-400">Menge: 500 Stück | Standort: Hamburg</p>
+
+      <!-- Material -->
+      <div>
+        <label class="block text-[#F1FAEE] font-semibold mb-2">Material</label>
+        <select name="material" id="material-select" onchange="toggleOtherMaterial()" class="w-full bg-gray-700 text-white p-2 rounded">
+          <option value="">-- Bitte wählen --</option>
+          {% for material in materials %}
+            <option value="{{ material.name }}">{{ material.name }}</option>
+          {% endfor %}
+            <option value="Other">Anderes</option>
+        </select>
+        <input type="text" name="material_other" id="material-other" placeholder="Spezialmaterial eingeben"
+          class="w-full bg-gray-700 text-white p-2 rounded mt-2 hidden">
       </div>
-      {# Später kannst du hier mit Django-Template-Tags über deine Bauteile iterieren #}
+
+
+      <!-- Standort -->
+      <div>
+        <label class="block text-[#F1FAEE] font-semibold mb-2">Standort</label>
+        <input type="text" name="location" placeholder="z. B. Augsburg, DE"
+          class="w-full bg-gray-700 text-white p-2 rounded">
+      </div>
+
+      <!-- Nur wiederverwendbar -->
+      <div class="flex items-center">
+        <input type="checkbox" name="reuse_only" class="mr-2">
+        <label class="text-[#F1FAEE]">Nur wiederverwendbare Bauteile anzeigen</label>
+      </div>
+
+      <!-- Button -->
+      <div class="flex items-end">
+        <button type="submit" class="bg-[#4CAF50] hover:bg-green-600 text-white px-6 py-2 rounded">
+          🔍 Filtern
+        </button>
+      </div>
     </div>
+  </form>
+</div>
+{% if components %}
+  <div class="mt-8">
+    <h3 class="text-2xl font-semibold text-[#F1FAEE] mb-4">🔎 Gefundene Bauteile</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for c in components %}
+        <div class="bg-gray-800 p-4 rounded shadow">
+          <h4 class="text-xl font-bold text-[#4CAF50]">{{ c.name }}</h4>
+          <p class="text-gray-400">Kategorie: {{ c.category }}</p>
+          <p class="text-gray-400">Unterkategorie: {{ c.subcategory }}</p>
+          <p class="text-gray-400">Material: {{ c.material }}</p>
+          <p class="text-gray-400">Standort: {{ c.location }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% else %}
+  <p class="text-gray-500 mt-8 text-center">Keine Bauteile gefunden. Bitte Filter anpassen.</p>
+{% endif %}
+
+
+<script>
+  function toggleOtherMaterial() {
+    const matSelect = document.getElementById("material-select");
+    const otherField = document.getElementById("material-other");
+    otherField.classList.toggle("hidden", matSelect.value !== "Other");
+  }
+</script>
+
+
   </main>
 
   <footer class="bg-gray-800 text-[#F1FAEE] py-4">
