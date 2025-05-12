@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -5,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IFC Reuse Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="{% static 'styles.css' %}">
+
     <style>
         .dropdown-content {
             display: none;
@@ -27,13 +29,16 @@
 
 <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
     <div class="flex items-center space-x-4">
-        <img src="% static 'images/logo.jpg' %" alt="Logo" class="h-20 mx-2" />
+      <div class="flex items-center"></div>
+
+        <img src="{% static 'images/logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+
         <nav class="flex space-x-4 ml-4 text-lg">
-            <a href="index.html" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
-            <a href="catalog.html" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
-            <a href="upload.html" class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
-            <a href="api.html" class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
-            <a href="about.html" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+                <a href="{% url 'home' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+                <a href="{% url 'catalog' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
+                <a href="{% url 'upload_page' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
+                <a href="{% url 'api' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
+                <a href="{% url 'about' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
         </nav>
     </div>
     <div id="user-section"></div>
@@ -56,7 +61,7 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 px-6">
-        <a href="upload.html" class="bg-gray-800 shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
+        <a href="{% url 'upload_page' %}" class="bg-gray-800 shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
             <span class="text-blue-400 text-4xl">📤</span>
             <h3 class="text-lg font-semibold mt-2">IFC-Datei hochladen</h3>
             <p class="text-gray-400">
@@ -64,7 +69,7 @@
             </p>
         </a>
 
-        <a href="catalog.html" class="bg-gray-800 shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
+        <a href="{% url 'catalog' %}"class="bg-gray-800 shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
             <span class="text-[#4CAF50] text-4xl">📑</span>
             <h3 class="text-lg font-semibold mt-2">Bauteil-Katalog</h3>
             <p class="text-gray-400">
@@ -72,7 +77,7 @@
             </p>
         </a>
 
-        <a href="api.html" class="bg-gray-800 shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
+        <a href="{% url 'api' %}"  class="bg-gray-800 shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
             <span class="text-orange-400 text-4xl">🔗</span>
             <h3 class="text-lg font-semibold mt-2">API-Zugang</h3>
             <p class="text-gray-400">

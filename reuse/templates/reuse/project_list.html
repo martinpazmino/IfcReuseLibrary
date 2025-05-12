@@ -1,4 +1,5 @@
 <!-- projects/templates/projects/project_list.html -->
+{% load static %}
 <!DOCTYPE html>
 <html>
 <!DOCTYPE html>
@@ -29,9 +30,11 @@
     <!-- Header -->
     <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
         <div class="flex items-center space-x-4">
-            <img src="% static 'images/logo.jpg' %" alt="Logo" alt="Logo" class="h-20 mx-2" />
+
+            <img src="{% static 'images/logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+
             <nav class="flex space-x-4 ml-4 text-lg">
-                <a href="{% url 'index' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+                <a href="{% url 'home' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
                 <a href="{% url 'catalog' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
                 <a href="{% url 'upload_page' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
                 <a href="{% url 'api' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>

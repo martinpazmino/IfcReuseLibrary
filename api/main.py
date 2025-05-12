@@ -37,20 +37,52 @@ async def upload_ifc_file(
 
         # 🔹 Parse IFC components
         model = ifcopenshell.open(file_path)
-        component_types = ["IfcWall", "IfcWindow", "IfcSlab", "IfcBeam", "IfcColumn", "IfcDoor", "IfcSpace"]
+        component_types = {
+            "IfcWall": ("Architectural", "Wall"),
+            "IfcWindow": ("Architectural", "Window"),
+            "IfcSlab": ("Structural", "Slab"),
+            "IfcBeam": ("Structural", "Beam"),
+            "IfcColumn": ("Structural", "Column"),
+            "IfcDoor": ("Architectural", "Door"),
+            "IfcSpace": ("MEP", "Space")
+        }
+
         parsed_components = []
 
-        for comp_type in component_types:
+        for comp_type, (category, subcategory) in component_types.items():
             for item in model.by_type(comp_type):
+                name = item.Name or f"Unnamed {comp_type}"
+
+                # Try to extract material
+                material = "Unknown"
+                rels = item.HasAssociations or []
+                for rel in rels:
+                    if rel.is_a("IfcRelAssociatesMaterial") and hasattr(rel, "RelatingMaterial"):
+                        mat = rel.RelatingMaterial
+                        if mat.is_a("IfcMaterial"):
+                            material = mat.Name
+                        elif mat.is_a("IfcMaterialLayerSetUsage"):
+                            layer_set = mat.ForLayerSet
+                            if layer_set and layer_set.MaterialLayers:
+                                material = layer_set.MaterialLayers[0].Material.Name
+                        break
+
                 parsed_components.append({
-                    "name": item.Name or f"Unnamed {comp_type}",
-                    "type": comp_type
+                    "name": name,
+                    "type": comp_type,
+                    "category": category,
+                    "subcategory": subcategory,
+                    "material": material,
+                    "location": location,
+                    "reuse_flag": True
                 })
 
         # 🔹 Save project and components
-        db = SessionLocal()
+        # Still inside the outer try block after project creation
 
-        # Mock user logic (keep for now)
+        db = SessionLocal()  # Open DB session
+
+        # 🔹 Mock user logic
         user = db.query(User).filter_by(id="mock-user-id").first()
         if not user:
             user = User(
@@ -63,6 +95,7 @@ async def upload_ifc_file(
             db.add(user)
             db.commit()
 
+        # 🔹 Save project
         project = Project(
             user_id="mock-user-id",
             name=projectName,
@@ -74,13 +107,41 @@ async def upload_ifc_file(
         db.refresh(project)
 
         # 🔹 Save components
-        for comp in parsed_components:
-            db.add(Component(
-                name=comp["name"],
-                type=comp["type"],
-                project_id=project.id
-            ))
+        for comp_type, (category, subcategory) in component_types.items():
+            for item in model.by_type(comp_type):
+                name = item.Name or f"Unnamed {comp_type}"
 
+                # Extract material
+                material = "Unknown"
+                rels = item.HasAssociations or []
+                for rel in rels:
+                    if rel.is_a("IfcRelAssociatesMaterial") and hasattr(rel, "RelatingMaterial"):
+                        mat = rel.RelatingMaterial
+                        if mat.is_a("IfcMaterial"):
+                            material = mat.Name
+                        elif mat.is_a("IfcMaterialLayerSetUsage"):
+                            layer_set = mat.ForLayerSet
+                            if layer_set and layer_set.MaterialLayers:
+                                material = layer_set.MaterialLayers[0].Material.Name
+                        break
+
+                # Add component
+                component = Component(
+                    project_id=project.id,
+                    name=name,
+                    category=category,
+                    subcategory=subcategory,
+                    material=material,
+                    location=location,
+                    reuse_flag=True,
+                    dimensions={},  # placeholder
+                    quantity=1,
+                    extra_metadata={},
+                    preview_url=""
+                )
+                db.add(component)
+
+        # ✅ Commit once at the end
         db.commit()
         db.close()
 
