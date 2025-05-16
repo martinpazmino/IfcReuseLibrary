@@ -1,9 +1,10 @@
-# api/database.py
-
 from sqlalchemy import create_engine, Column, String, Integer, Boolean, JSON, ForeignKey, DateTime
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import uuid
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.sql import text  # Added this import
+from sqlalchemy.ext.declarative import declarative_base
 
 # 👇👇 IMPORTANT: Replace this with your actual password
 DATABASE_URL = "postgresql://postgres:080920%40PA1io@localhost:5432/ifc_reuse"
@@ -22,16 +23,18 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     projects = relationship("Project", back_populates="user")
 
+Base = declarative_base()  # This line overwrites the previous Base; move it before class definitions or remove the duplicate
 # -- Projects table
 class Project(Base):
     __tablename__ = "projects"
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"))
-    name = Column(String)
-    description = Column(String)
-    location = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    user = relationship("User", back_populates="projects")
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    filename = Column(String, nullable=True)  # Keep this line
+    created_at = Column(DateTime, nullable=False, server_default=text("NOW()"))
     components = relationship("Component", back_populates="project")
 
 # -- Components table
@@ -55,5 +58,3 @@ class Component(Base):
 # -- Call this to create all tables
 def create_tables():
     Base.metadata.create_all(bind=engine)
-
-
