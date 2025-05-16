@@ -1,25 +1,30 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import shutil, os, uuid
+from fastapi.responses import JSONResponse, FileResponse
+import os
+import shutil
 import ifcopenshell
 from datetime import datetime
-from .database import SessionLocal, User, Project, Component
+from pydantic import BaseModel, Field
+from typing import List
+
 from api.database import SessionLocal, Project, User  # Add User model
+from api.extract_glb import export_component_glb  # <-- Import extractor
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:8080"],  # ✅ Corrected key
+    allow_origins=["http://127.0.0.1:8080"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 BUCKET_FOLDER = os.path.join("uploads", "ifc-bucket")
+GLB_FOLDER = os.path.join("uploads", "glb")
 os.makedirs(BUCKET_FOLDER, exist_ok=True)
-
+os.makedirs(GLB_FOLDER, exist_ok=True)
 
 @app.post("/upload")
 async def upload_ifc_file(
@@ -28,61 +33,31 @@ async def upload_ifc_file(
     location: str = Form(...)
 ):
     try:
-        # 🔹 Save file
-        os.makedirs(BUCKET_FOLDER, exist_ok=True)
-        file_id = f"{uuid.uuid4()}_{file.filename}"
-        file_path = os.path.join(BUCKET_FOLDER, file_id)
+        # Save file
+        file_path = os.path.join(BUCKET_FOLDER, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 🔹 Parse IFC components
+        # Parse IFC
         model = ifcopenshell.open(file_path)
-        component_types = {
-            "IfcWall": ("Architectural", "Wall"),
-            "IfcWindow": ("Architectural", "Window"),
-            "IfcSlab": ("Structural", "Slab"),
-            "IfcBeam": ("Structural", "Beam"),
-            "IfcColumn": ("Structural", "Column"),
-            "IfcDoor": ("Architectural", "Door"),
-            "IfcSpace": ("MEP", "Space")
+        print("[DEBUG] IFC Types:")
+        for t in ["IfcWall", "IfcSlab", "IfcBeam", "IfcColumn", "IfcDoor", "IfcWindow", "IfcBuildingElement"]:
+            print(f"{t}: {len(model.by_type(t))}")
+
+        summary = {
+            "filename": file.filename,
+            "walls": len(model.by_type("IfcWall")),
+            "windows": len(model.by_type("IfcWindow")),
+            "slabs": len(model.by_type("IfcSlab")),
+            "beams": len(model.by_type("IfcBeam")),
+            "columns": len(model.by_type("IfcColumn")),
+            "doors": len(model.by_type("IfcDoor")),
+            "spaces": len(model.by_type("IfcSpace")),
         }
 
-        parsed_components = []
+        # DB logic
+        db = SessionLocal()
 
-        for comp_type, (category, subcategory) in component_types.items():
-            for item in model.by_type(comp_type):
-                name = item.Name or f"Unnamed {comp_type}"
-
-                # Try to extract material
-                material = "Unknown"
-                rels = item.HasAssociations or []
-                for rel in rels:
-                    if rel.is_a("IfcRelAssociatesMaterial") and hasattr(rel, "RelatingMaterial"):
-                        mat = rel.RelatingMaterial
-                        if mat.is_a("IfcMaterial"):
-                            material = mat.Name
-                        elif mat.is_a("IfcMaterialLayerSetUsage"):
-                            layer_set = mat.ForLayerSet
-                            if layer_set and layer_set.MaterialLayers:
-                                material = layer_set.MaterialLayers[0].Material.Name
-                        break
-
-                parsed_components.append({
-                    "name": name,
-                    "type": comp_type,
-                    "category": category,
-                    "subcategory": subcategory,
-                    "material": material,
-                    "location": location,
-                    "reuse_flag": True
-                })
-
-        # 🔹 Save project and components
-        # Still inside the outer try block after project creation
-
-        db = SessionLocal()  # Open DB session
-
-        # 🔹 Mock user logic
         user = db.query(User).filter_by(id="mock-user-id").first()
         if not user:
             user = User(
@@ -95,7 +70,6 @@ async def upload_ifc_file(
             db.add(user)
             db.commit()
 
-        # 🔹 Save project
         project = Project(
             user_id="mock-user-id",
             name=projectName,
@@ -105,77 +79,60 @@ async def upload_ifc_file(
         db.add(project)
         db.commit()
         db.refresh(project)
-
-        # 🔹 Save components
-        for comp_type, (category, subcategory) in component_types.items():
-            for item in model.by_type(comp_type):
-                name = item.Name or f"Unnamed {comp_type}"
-
-                # Extract material
-                material = "Unknown"
-                rels = item.HasAssociations or []
-                for rel in rels:
-                    if rel.is_a("IfcRelAssociatesMaterial") and hasattr(rel, "RelatingMaterial"):
-                        mat = rel.RelatingMaterial
-                        if mat.is_a("IfcMaterial"):
-                            material = mat.Name
-                        elif mat.is_a("IfcMaterialLayerSetUsage"):
-                            layer_set = mat.ForLayerSet
-                            if layer_set and layer_set.MaterialLayers:
-                                material = layer_set.MaterialLayers[0].Material.Name
-                        break
-
-                # Add component
-                component = Component(
-                    project_id=project.id,
-                    name=name,
-                    category=category,
-                    subcategory=subcategory,
-                    material=material,
-                    location=location,
-                    reuse_flag=True,
-                    dimensions={},  # placeholder
-                    quantity=1,
-                    extra_metadata={},
-                    preview_url=""
-                )
-                db.add(component)
-
-        # ✅ Commit once at the end
-        db.commit()
         db.close()
 
+        # 🔹 Export GLBs
+        project_glb_dir = os.path.join(GLB_FOLDER, os.path.splitext(file.filename)[0])
+        print(f"[INFO] Exporting components to {project_glb_dir}")
+        export_component_glb(file_path, project_glb_dir)
+
         return {
-            "message": "IFC file uploaded and components stored",
-            "data": {
-                "project_id": project.id,
-                "project_name": project.name,
-                "components": parsed_components
-            }
+            "message": "IFC file uploaded and parsed successfully",
+            "data": summary
         }
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/components/{component_id}/glb")
+def serve_glb(component_id: str):
+    for root, _, files in os.walk(GLB_FOLDER):
+        for file in files:
+            if file.startswith(component_id) and file.endswith(".glb"):
+                return FileResponse(os.path.join(root, file), media_type="model/gltf-binary")
+    raise HTTPException(status_code=404, detail="GLB not found")
+
+
+class Component(BaseModel):
+    id: str = Field(...)
+    name: str
+    type: str
+
+class ProjectModel(BaseModel):
+    id: str
+    name: str
+    components: List[Component] = []
+
+projects = [
+    ProjectModel(
+        id="1",
+        name="Project Alpha",
+        components=[
+            Component(id="comp1", name="Beam", type="Structural"),
+            Component(id="comp2", name="Column", type="Structural")
+        ]
+    ),
+    ProjectModel(
+        id="2",
+        name="Project Beta",
+        components=[
+            Component(id="comp3", name="Wall", type="Architectural")
+        ]
+    )
+]
+
 @app.get("/projects/")
 def get_projects():
-    db = SessionLocal()
-    projects = db.query(Project).all()
-    result = []
-    for p in projects:
-        result.append({
-            "id": p.id,
-            "name": p.name,
-            "location": p.location,
-            "components": [{"name": c.name, "type": c.type} for c in p.components]
-        })
-    db.close()
-    return result
-
-@app.get("/uploads/ifc-bucket")
-def serve_file(filename: str):
-    file_path = os.path.join("uploads", "ifc-bucket", filename)
-    if os.path.exists(file_path):
-        return FileResponse(file_path)
-    return {"error": "File not found"}
+    return projects

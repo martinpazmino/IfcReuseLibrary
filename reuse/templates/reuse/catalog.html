@@ -6,19 +6,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bauteil-Katalog</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .dropdown-content {
-      display: none;
-      position: absolute;
-      right: 0;
-      background-color: #2d3748;
-      min-width: 150px;
-      z-index: 1;
+  <script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three';
+    import { GLTFLoader } from 'https://cdn.skypack.dev/three/examples/jsm/loaders/GLTFLoader.js';
+
+    window.loadGLB = (canvasId, componentId) => {
+      const canvas = document.getElementById(canvasId);
+      const renderer = new THREE.WebGLRenderer({ canvas });
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x202020);
+
+      const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+      camera.position.z = 5;
+
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(1, 1, 1).normalize();
+      scene.add(light);
+
+      const loader = new GLTFLoader();
+      loader.load(`/components/${componentId}/glb`, (gltf) => {
+        scene.add(gltf.scene);
+        renderer.render(scene, camera);
+      });
     }
-    .dropdown.active .dropdown-content {
-      display: block;
-    }
-  </style>
+  </script>
   <script>
     function toggleDropdown(event) {
       event.stopPropagation();
@@ -53,125 +66,35 @@
     </div>
   </header>
 
-  <main class="flex-grow">
-    <section class="text-center mt-12 px-4">
+  <main class="flex-grow px-6">
+    <section class="text-center mt-12">
       <h2 class="text-4xl font-bold text-[#F1FAEE]">Bauteil-Katalog</h2>
-      <p class="text-gray-400 mt-2">
-        Durchsuche wiederverwendbare Bauteile nach Material, Größe oder Standort.
-      </p>
+      <p class="text-gray-400 mt-2">Durchsuche wiederverwendbare Bauteile nach Material, Größe oder Standort.</p>
     </section>
 
-    <div class="mt-6 flex justify-center px-4">
-      <form method="get" action="">
-        <input
-          type="text"
-          name="q"
-          placeholder="Suche nach Bauteilen…"
-          class="w-64 md:w-1/2 border border-gray-600 bg-gray-800 text-[#F1FAEE] p-2 rounded"
-        >
-        <button type="submit" class="ml-2 bg-[#4CAF50] text-white px-4 py-2 rounded">
-          🔍 Suchen
-        </button>
-      </form>
-    </div>
-
-<!-- Kategorie (Checkboxen), Unterkategorie, Material, Standort -->
-<div class="mt-10 px-6">
-  <form method="GET" action="">
-    <div class="grid md:grid-cols-3 gap-6 bg-gray-800 p-6 rounded-lg shadow-lg">
-
-      <!-- Kategorie -->
-      <div>
-        <label class="block text-[#F1FAEE] font-semibold mb-2">Kategorie</label>
-        <div class="space-y-2 bg-gray-700 p-3 rounded">
-          {% for category in categories %}
-            <label class="inline-flex items-center text-white">
-              <input type="checkbox" name="category" value="{{ category.name }}" class="mr-2"> {{ category.name }}
-            </label><br>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- Unterkategorie -->
-      <div>
-        <label class="block text-[#F1FAEE] font-semibold mb-2">Unterkategorie</label>
-        <select name="subcategory" class="w-full bg-gray-700 text-white p-2 rounded">
-          <option value="">-- Bitte wählen --</option>
-          {% for sub in subcategories %}
-            <option value="{{ sub.name }}">{{ sub.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <!-- Material -->
-      <div>
-        <label class="block text-[#F1FAEE] font-semibold mb-2">Material</label>
-        <select name="material" id="material-select" onchange="toggleOtherMaterial()" class="w-full bg-gray-700 text-white p-2 rounded">
-          <option value="">-- Bitte wählen --</option>
-          {% for material in materials %}
-            <option value="{{ material.name }}">{{ material.name }}</option>
-          {% endfor %}
-            <option value="Other">Anderes</option>
-        </select>
-        <input type="text" name="material_other" id="material-other" placeholder="Spezialmaterial eingeben"
-          class="w-full bg-gray-700 text-white p-2 rounded mt-2 hidden">
-      </div>
-
-
-      <!-- Standort -->
-      <div>
-        <label class="block text-[#F1FAEE] font-semibold mb-2">Standort</label>
-        <input type="text" name="location" placeholder="z. B. Augsburg, DE"
-          class="w-full bg-gray-700 text-white p-2 rounded">
-      </div>
-
-      <!-- Nur wiederverwendbar -->
-      <div class="flex items-center">
-        <input type="checkbox" name="reuse_only" class="mr-2">
-        <label class="text-[#F1FAEE]">Nur wiederverwendbare Bauteile anzeigen</label>
-      </div>
-
-      <!-- Button -->
-      <div class="flex items-end">
-        <button type="submit" class="bg-[#4CAF50] hover:bg-green-600 text-white px-6 py-2 rounded">
-          🔍 Filtern
-        </button>
-      </div>
-    </div>
-  </form>
-</div>
-{% if components %}
-  <div class="mt-8">
-    <h3 class="text-2xl font-semibold text-[#F1FAEE] mb-4">🔎 Gefundene Bauteile</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {% for c in components %}
+    {% if components %}
+    <div class="mt-8">
+      <h3 class="text-2xl font-semibold text-[#F1FAEE] mb-4">🔎 Gefundene Bauteile</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for c in components %}
         <div class="bg-gray-800 p-4 rounded shadow">
           <h4 class="text-xl font-bold text-[#4CAF50]">{{ c.name }}</h4>
           <p class="text-gray-400">Kategorie: {{ c.category }}</p>
           <p class="text-gray-400">Unterkategorie: {{ c.subcategory }}</p>
           <p class="text-gray-400">Material: {{ c.material }}</p>
           <p class="text-gray-400">Standort: {{ c.location }}</p>
+          <canvas id="viewer-{{ c.id }}" class="w-full h-64 mt-4"></canvas>
+          <script>window.loadGLB("viewer-{{ c.id }}", "{{ c.id }}")</script>
         </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     </div>
-  </div>
-{% else %}
-  <p class="text-gray-500 mt-8 text-center">Keine Bauteile gefunden. Bitte Filter anpassen.</p>
-{% endif %}
-
-
-<script>
-  function toggleOtherMaterial() {
-    const matSelect = document.getElementById("material-select");
-    const otherField = document.getElementById("material-other");
-    otherField.classList.toggle("hidden", matSelect.value !== "Other");
-  }
-</script>
-
-
+    {% else %}
+    <p class="text-gray-500 mt-8 text-center">Keine Bauteile gefunden. Bitte Filter anpassen.</p>
+    {% endif %}
   </main>
 
-  <footer class="bg-gray-800 text-[#F1FAEE] py-4">
+  <footer class="bg-gray-800 text-[#F1FAEE] py-4 mt-auto">
     <div class="container mx-auto px-4 text-center">
       <h3 class="text-lg font-bold mb-2">Kontakt</h3>
       <div class="space-y-1 text-sm">
@@ -183,6 +106,5 @@
       <p class="text-xs text-gray-400 mt-2">&copy; 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
     </div>
   </footer>
-
 </body>
 </html>

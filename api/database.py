@@ -8,8 +8,8 @@ from datetime import datetime
 # 👇👇 IMPORTANT: Replace this with your actual password
 DATABASE_URL = "postgresql://postgres:080920%40PA1io@localhost:5432/ifc_reuse"
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(DATABASE_URL, echo=False)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 Base = declarative_base()
 
 # -- Users table
