@@ -16,6 +16,18 @@
       if (dd) dd.classList.remove('active');
     });
   </script>
+  <style>
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      min-width: 160px;
+      z-index: 1;
+    }
+    .dropdown.active .dropdown-content {
+      display: block;
+    }
+  </style>
 </head>
 <body class="flex flex-col flex-grow">
   <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
@@ -31,7 +43,7 @@
     </div>
     <div class="dropdown relative">
       <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50]">👤 Benutzer</button>
-      <div class="dropdown-content bg-gray-700 rounded shadow-lg hidden">
+      <div class="dropdown-content bg-gray-700 rounded shadow-lg">
         <a href="#" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
         <a href="#" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
         <a href="#" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
@@ -53,6 +65,10 @@
 
         <label class="block text-[#F1FAEE] font-semibold mt-4">IFC-Datei hochladen:</label>
         <input type="file" name="file" class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1" required>
+
+        <label class="block text-[#F1FAEE] font-semibold mt-4">
+          <input type="checkbox" name="skip_conversion" class="mr-2"> GLB-Konvertierung überspringen (schneller Upload)
+        </label>
 
         <button type="submit" class="w-full mt-4 bg-[#4CAF50] text-white py-2 rounded hover:bg-[#45a049] transition">📤 Hochladen</button>
       </form>
@@ -96,7 +112,7 @@
         <p>Telefon: 0821 55860</p>
         <p>Öffnungszeiten: Mo–Fr 9:00–17:00</p>
       </div>
-      <p class="text-xs text-gray-400 mt-2">&copy; 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
+      <p class="text-xs text-gray-400 mt-2">© 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
     </div>
   </footer>
 </body>
