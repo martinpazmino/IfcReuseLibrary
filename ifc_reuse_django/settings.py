@@ -19,7 +19,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
-    BASE_DIR / "api" / "reuse" / "static",  # or wherever your static folder is
+    BASE_DIR / "api" / "reuse" / "static",
+    BASE_DIR / "static",  # or wherever your static folder is
 ]
 
 DEBUG = True
