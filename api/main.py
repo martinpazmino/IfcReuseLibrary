@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from typing import List
 import subprocess
 from sqlalchemy.sql import text
+import uuid
+import re
 
 from api.database import SessionLocal, Project, User
 
@@ -150,10 +152,17 @@ async def upload_ifc_file(
 
         # Database logic
         db = SessionLocal()
-        user = db.query(User).filter_by(id="mock-user-id").first()
+        # Generate a valid UUID for the user
+        mock_user_id = str(uuid.uuid4())
+        # Validate that mock_user_id is a valid UUID
+        uuid_pattern = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        if not uuid_pattern.match(mock_user_id):
+            raise ValueError(f"Generated user_id {mock_user_id} is not a valid UUID")
+
+        user = db.query(User).filter_by(id=mock_user_id).first()
         if not user:
             user = User(
-                id="mock-user-id",
+                id=mock_user_id,
                 name="Mock User",
                 email="mock@example.com",
                 password_hash="hash",
@@ -162,12 +171,18 @@ async def upload_ifc_file(
             db.add(user)
             db.commit()
 
+        # Generate a valid UUID for the project
+        project_id = str(uuid.uuid4())
+        if not uuid_pattern.match(project_id):
+            raise ValueError(f"Generated project_id {project_id} is not a valid UUID")
+
         project = Project(
-            user_id="mock-user-id",
+            id=project_id,
+            user_id=mock_user_id,
             name=projectName,
             description="Uploaded via form",
             location=location,
-            filename=file.filename  # Store the IFC filename
+            filename=file.filename
         )
         db.add(project)
         db.commit()
