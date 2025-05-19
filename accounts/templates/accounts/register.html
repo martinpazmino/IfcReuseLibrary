@@ -1,20 +1,84 @@
-<!-- accounts/templates/accounts/register.html -->
+{% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-    <title>Register</title>
+    <meta charset="UTF-8">
+    <title>Registrieren - IFC Reuse Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #2d3748;
+            min-width: 150px;
+            z-index: 10;
+        }
+        .dropdown.active .dropdown-content {
+            display: block;
+        }
+        .modal-bg {
+            background: rgba(0, 0, 0, 0.6);
+        }
+    </style>
 </head>
-<body>
-    <h2>Register</h2>
-    {% if messages %}
-        {% for message in messages %}
-            <p>{{ message }}</p>
-        {% endfor %}
-    {% endif %}
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Register</button>
-    </form>
+<body class="bg-gray-900 text-[#F1FAEE] min-h-screen flex flex-col">
+
+<header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center space-x-4">
+        <img src="{% static 'images/logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+        <nav class="flex space-x-4 ml-4 text-lg">
+            <a href="{% url 'home' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+            <a href="{% url 'catalog' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
+            <a href="{% url 'upload_page' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
+            <a href="{% url 'api' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
+            <a href="{% url 'about' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+        </nav>
+    </div>
+</header>
+
+<main class="flex-grow flex items-center justify-center px-4">
+    <div class="bg-gray-800 p-8 rounded-xl shadow-lg max-w-md w-full">
+        <h2 class="text-3xl font-bold mb-6 text-center">Registrieren</h2>
+        {% if messages %}
+            <div class="mb-4 text-center">
+                {% for message in messages %}
+                    <p class="text-red-400">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block mb-1">Benutzername</label>
+                <input type="text" name="username" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">E-Mail</label>
+                <input type="email" name="email" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">Passwort</label>
+                <input type="password" name="password" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">Passwort wiederholen</label>
+                <input type="password" name="password_confirm" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white" required>
+            </div>
+            <button type="submit" class="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-lg font-semibold">
+                Konto erstellen
+            </button>
+
+            <div class="mt-4 text-center">
+                <a href="{% url 'login' %}" class="text-[#4CAF50] hover:underline">Bereits registriert? Jetzt einloggen</a>
+            </div>
+        </form>
+    </div>
+</main>
+
+<footer class="bg-gray-800 text-[#F1FAEE] py-2 mt-auto text-center text-sm">
+    © 2025 IFC Reuse Platform. Alle Rechte vorbehalten.
+</footer>
+
 </body>
 </html>

@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -6,6 +6,7 @@ import os
 import requests
 from .models import Category, Subcategory, Material
 from api.database import SessionLocal, Component
+from django.contrib.auth import logout
 
 # 🔹 Views to render pages
 def home(request):
@@ -47,6 +48,15 @@ def upload_ifc_to_fastapi(request):
     return render(request, 'reuse/upload.html')  # Or redirect to your upload form
 
 @login_required
+def settings_view(request):
+    return render(request, 'reuse/settings.html')
+
+def profile_view(request):
+    return render(request, 'reuse/profile.html')
+
+def logout_view(request):
+    return redirect('logout')
+
 def project_list(request):
     try:
         response = requests.get("http://127.0.0.1:8001/projects/")

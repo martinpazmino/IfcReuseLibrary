@@ -1,12 +1,9 @@
 # accounts/views.py
 from django.shortcuts import render, redirect
-from .forms import UserRegistrationForm
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from django.http import JsonResponse
-import jwt
-from datetime import datetime, timedelta
-from django.conf import settings
+from .forms import UserRegistrationForm
+from django.contrib.auth.decorators import login_required
 
 def register(request):
     if request.method == 'POST':
@@ -16,31 +13,13 @@ def register(request):
             user.set_password(form.cleaned_data['password'])
             user.save()
             login(request, user)
-            messages.success(request, "Registration successful!")
-            return redirect('home')  # Ersetze 'home' durch deine Ziel-URL
+            messages.success(request, "Registrierung erfolgreich!")
+            return redirect('home')
         else:
-            messages.error(request, "Registration failed. Please check your input.")
+            messages.error(request, "Registrierung fehlgeschlagen. Bitte überprüfe deine Eingaben.")
     else:
         form = UserRegistrationForm()
     return render(request, 'accounts/register.html', {'form': form})
-
-def generate_token(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            # Generiere JWT
-            payload = {
-                'user_id': user.id,
-                'exp': datetime.utcnow() + timedelta(hours=24),
-                'iat': datetime.utcnow()
-            }
-            token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
-            return JsonResponse({'token': token})
-        else:
-            return JsonResponse({'error': 'Invalid credentials'}, status=401)
-    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 def user_login(request):
     if request.method == 'POST':
@@ -49,7 +28,30 @@ def user_login(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            return redirect('home')  # Ersetze 'home' durch deine Ziel-URL
+            return redirect('home')
         else:
-            messages.error(request, "Invalid username or password")
+            messages.error(request, "Ungültiger Benutzername oder Passwort.")
     return render(request, 'accounts/login.html')
+
+@login_required
+def edit_profile(request):
+    if request.method == 'POST':
+        user = request.user
+        user.email = request.POST.get('email', user.email)
+        user.first_name = request.POST.get('first_name', user.first_name)
+        user.last_name = request.POST.get('last_name', user.last_name)
+        user.save()
+        return redirect('profile')
+    return render(request, 'accounts/edit_profile.html')
+
+def upload_profile_image(request):
+    if request.method == 'POST' and request.FILES.get('profile_image'):
+        profile = request.user.profile
+        profile.image = request.FILES['profile_image']
+        profile.save()
+        return redirect('profile')
+    return render(request, 'accounts/upload_profile_image.html')
+
+def user_logout(request):
+    logout(request)
+    return redirect('login')
