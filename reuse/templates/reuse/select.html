@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mark Reusable Components</title>
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+    import { IFCLoader } from 'https://unpkg.com/web-ifc-three@0.0.152/IFCLoader.js';
+
+    let scene, camera, renderer, controls, ifcLoader;
+    let selectedGuids = new Set();
+
+    init();
+
+    function init() {
+      const container = document.getElementById("viewer");
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x202020);
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+      camera.position.set(10, 10, 10);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(10, 10, 10);
+      scene.add(light);
+
+      const ambient = new THREE.AmbientLight(0x404040);
+      scene.add(ambient);
+
+      ifcLoader = new IFCLoader();
+      ifcLoader.ifcManager.setWasmPath("https://unpkg.com/web-ifc@0.0.38/");
+
+      animate();
+
+      document.getElementById("ifc-file").addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        const model = await ifcLoader.loadAsync(url);
+        scene.add(model);
+      });
+
+      window.addEventListener('click', async (event) => {
+        const found = await ifcLoader.ifcManager.pickIfcItem(event, camera, renderer.domElement);
+        if (!found) return;
+        const props = await ifcLoader.ifcManager.getItemProperties(found.modelID, found.id);
+        if (props.GlobalId) {
+          selectedGuids.add(props.GlobalId.value);
+          console.log("Marked reusable:", props.GlobalId.value);
+        }
+      });
+
+      document.getElementById("submit-btn").addEventListener("click", async () => {
+        const filename = document.getElementById("filename").value;
+        const body = JSON.stringify({
+          filename: filename,
+          reusable_ids: Array.from(selectedGuids)
+        });
+
+        const res = await fetch("http://localhost:8001/mark_reusable/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: body
+        });
+
+        const result = await res.json();
+        alert("Reusable components saved!" + JSON.stringify(result));
+      });
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</head>
+<body>
+  <div style="position: absolute; z-index: 10; background: white; padding: 10px;">
+    <label for="filename">IFC Filename:</label>
+    <input type="text" id="filename" placeholder="example.ifc">
+    <input type="file" id="ifc-file">
+    <button id="submit-btn">Mark Reusable</button>
+  </div>
+  <div id="viewer" style="width: 100vw; height: 100vh;"></div>
+</body>
+</html>

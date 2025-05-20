@@ -24,6 +24,7 @@ def api_view(request):
 def about(request):
     return render(request, 'reuse/about.html')
 
+
 def upload_ifc_to_fastapi(request):
     if request.method == 'POST' and request.FILES.get('file'):
         file = request.FILES['file']

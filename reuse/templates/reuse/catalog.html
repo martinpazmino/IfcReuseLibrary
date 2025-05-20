@@ -22,25 +22,14 @@
                 <a href="{% url 'about' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
             </nav>
         </div>
-        <div id="user-section">
-        {% if user.is_authenticated %}
-            <div class="dropdown relative">
-                <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50] flex items-center focus:outline-none">
-                    👤 <span class="ml-1">{{ user.username }}</span>
-                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-                <div class="dropdown-content bg-gray-700 rounded shadow-lg">
-                    <a href="{% url 'settings' %}" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
-                    <a href="{% url 'profile' %}" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
-                    <a href="{% url 'logout' %}" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
-                </div>
+        <div class="dropdown relative">
+            <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50]">👤 Benutzer</button>
+            <div class="dropdown-content bg-gray-700 rounded shadow-lg hidden absolute right-0 mt-2 w-48 z-10">
+                <a href="#" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+                <a href="#" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+                <a href="#" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
             </div>
-        {% else %}
-            <a href="{% url 'login' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Login</a>
-        {% endif %}
-    </div>
+        </div>
     </header>
 
     <main class="flex-grow px-6">
@@ -63,191 +52,147 @@
             <p class="text-xs text-gray-400 mt-2">© 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
         </div>
     </footer>
-<script>
-    // Toggle dropdown menu
-    function toggleDropdown(event) {
-        event.stopPropagation();
-        const dropdown = event.currentTarget.nextElementSibling;
-        dropdown.classList.toggle('hidden');
-    }
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (event) => {
-        const dropdowns = document.querySelectorAll('.dropdown-content');
-        dropdowns.forEach(dropdown => {
-            if (!dropdown.classList.contains('hidden') && !dropdown.parentElement.contains(event.target)) {
-                dropdown.classList.add('hidden');
-            }
+    <script>
+        // Toggle dropdown menu
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            const dropdown = event.currentTarget.nextElementSibling;
+            dropdown.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (event) => {
+            const dropdowns = document.querySelectorAll('.dropdown-content');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.classList.contains('hidden') && !dropdown.parentElement.contains(event.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
         });
-    });
 
-    // Fetch projects and components from the FastAPI backend
-    async function loadProjects() {
-        try {
-            const response = await fetch('http://127.0.0.1:8001/projects/');
-            const projects = await response.json();
-            const container = document.getElementById('projects-container');
+        // Fetch projects and components from the FastAPI backend
+        async function loadProjects() {
+            try {
+                const response = await fetch('http://127.0.0.1:8001/projects/');
+                const projects = await response.json();
+                const container = document.getElementById('projects-container');
 
-            if (projects.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center">Keine Bauteile gefunden. Bitte lade ein Projekt hoch.</p>';
-                return;
-            }
-
-            projects.forEach(project => {
-                const projectDiv = document.createElement('div');
-                projectDiv.className = 'mb-8';
-                projectDiv.innerHTML = `<h3 class="text-2xl font-semibold text-[#F1FAEE] mb-4">🔎 ${project.name}</h3>`;
-                const componentsGrid = document.createElement('div');
-                componentsGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
-                projectDiv.appendChild(componentsGrid);
-
-                if (project.components && project.components.length > 0) {
-                    project.components.forEach(component => {
-                        const componentCard = document.createElement('div');
-                        componentCard.className = 'bg-gray-800 p-4 rounded shadow';
-                        componentCard.innerHTML = `
-                            <h4 class="text-xl font-bold text-[#4CAF50]">${component.name}</h4>
-                            <p class="text-gray-400">Typ: ${component.type}</p>
-                            <div class="w-full h-64 mt-4 bg-gray-700 rounded relative overflow-hidden" id="canvas-container-${component.id}">
-                                <canvas class="absolute top-0 left-0 w-full h-full" id="canvas-${component.id}"></canvas>
-                            </div>
-                        `;
-                        componentsGrid.appendChild(componentCard);
-
-                        // Initialize Three.js immediately after adding to DOM
-                        setTimeout(() => { // Reintroduced delay to ensure DOM is ready
-                            const canvasCheck = document.getElementById(`canvas-${component.id}`);
-                            if (canvasCheck) {
-                                console.log(`Initializing Three.js for component ${component.id}`);
-                                initThreeJsScene(component.id, `http://127.0.0.1:8001/components/${component.id}/glb`);
-                            } else {
-                                console.error(`Canvas not found for component ${component.id}`);
-                            }
-                        }, 50); // Reduced delay to 50ms
-                    });
-                } else {
-                    componentsGrid.innerHTML = '<p class="text-gray-500 text-center">Keine Komponenten für dieses Projekt.</p>';
+                if (projects.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center">Keine Bauteile gefunden. Bitte lade ein Projekt hoch.</p>';
+                    return;
                 }
 
-                container.appendChild(projectDiv);
-            });
-        } catch (error) {
-            console.error('Error loading projects:', error);
-            const container = document.getElementById('projects-container');
-            container.innerHTML = '<p class="text-gray-500 text-center">Fehler beim Laden der Projekte. Bitte versuche es später erneut.</p>';
-        }
-    }
+                projects.forEach(project => {
+                    const projectDiv = document.createElement('div');
+                    projectDiv.className = 'mb-8';
+                    projectDiv.innerHTML = `<h3 class="text-2xl font-semibold text-[#F1FAEE] mb-4">🔎 ${project.name}</h3>`;
+                    const componentsGrid = document.createElement('div');
+                    componentsGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+                    projectDiv.appendChild(componentsGrid);
 
-    // Initialize Three.js scene for a single component
-    function initThreeJsScene(componentId, glbUrl) {
-        const canvas = document.getElementById(`canvas-${componentId}`);
-        if (!canvas) {
-            console.error(`Canvas not found for component ${componentId}`);
-            return;
-        }
+                    if (project.components && project.components.length > 0) {
+                        project.components.forEach(component => {
+                            const componentCard = document.createElement('div');
+                            componentCard.className = 'bg-gray-800 p-4 rounded shadow';
+                            componentCard.innerHTML = `
+                                <h4 class="text-xl font-bold text-[#4CAF50]">${component.name}</h4>
+                                <p class="text-gray-400">Typ: ${component.type}</p>
+                                <canvas class="w-full h-64 mt-4 bg-gray-700 rounded" id="canvas-${component.id}"></canvas>
+                            `;
+                            componentsGrid.appendChild(componentCard);
 
-        const container = document.getElementById(`canvas-container-${componentId}`);
-        if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
-            console.error(`Container dimensions invalid for component ${componentId}:`, container?.clientWidth, container?.clientHeight);
-            return;
-        }
-
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setClearColor(0x000000, 1); // Explicitly set black background
-
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Max intensity
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        directionalLight.position.set(1, 1, 1).normalize();
-        scene.add(directionalLight);
-
-        // Add OrbitControls
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 1;
-        controls.maxDistance = 10;
-
-        // Load GLB model with robust error handling
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-            glbUrl,
-            (gltf) => {
-                console.log(`GLB loaded successfully for ${componentId}`);
-                const model = gltf.scene;
-
-                // Traverse scene and apply fallback material if missing or invalid
-                model.traverse((child) => {
-                    if (child.isMesh) {
-                        if (!child.material || child.material === null || typeof child.material !== 'object') {
-                            console.warn(`Applying fallback material for ${componentId}`);
-                            child.material = new THREE.MeshStandardMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
-                        } else if (Object.keys(child.material).length === 0) {
-                            console.warn(`Applying fallback material for empty material in ${componentId}`);
-                            child.material = new THREE.MeshStandardMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
-                        }
+                            // Delay the Three.js initialization to ensure the canvas is in the DOM
+                            setTimeout(() => {
+                                console.log(`Initializing Three.js for component ${component.id}`);
+                                const canvasCheck = document.getElementById(`canvas-${component.id}`);
+                                if (canvasCheck) {
+                                    initThreeJsScene(component.id, `http://127.0.0.1:8001/components/${component.id}/glb`);
+                                } else {
+                                    console.error(`Canvas still not found after delay for component ${component.id}`);
+                                }
+                            }, 100); // 100ms delay to allow DOM update
+                        });
+                    } else {
+                        componentsGrid.innerHTML = '<p class="text-gray-500 text-center">Keine Komponenten für dieses Projekt.</p>';
                     }
+
+                    container.appendChild(projectDiv);
                 });
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                const container = document.getElementById('projects-container');
+                container.innerHTML = '<p class="text-gray-500 text-center">Fehler beim Laden der Projekte. Bitte versuche es später erneut.</p>';
+            }
+        }
 
-                scene.add(model);
+        // Initialize Three.js scene for a single component
+        function initThreeJsScene(componentId, glbUrl) {
+            const canvas = document.getElementById(`canvas-${componentId}`);
+            if (!canvas) {
+                console.error(`Canvas not found for component ${componentId}`);
+                return;
+            }
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
 
-                // Center and scale model
-                const box = new THREE.Box3().setFromObject(model);
-                if (isFinite(box.min.x) && isFinite(box.max.x)) { // Check for valid bounds
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+
+            // Add OrbitControls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Load GLB model
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                glbUrl,
+                (gltf) => {
+                    const model = gltf.scene;
+                    scene.add(model);
+
+                    // Center and scale model
+                    const box = new THREE.Box3().setFromObject(model);
                     const center = box.getCenter(new THREE.Vector3());
                     const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z) || 1; // Default to 1 if zero
-                    const scale = 1.5 / maxDim;
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 2 / maxDim;
                     model.scale.set(scale, scale, scale);
                     model.position.sub(center.multiplyScalar(scale));
 
-                    camera.position.set(0, 0, maxDim * 2);
-                    camera.lookAt(0, 0, 0);
-                    controls.target.set(0, 0, 0);
+                    camera.position.z = 3;
                     controls.update();
-                } else {
-                    console.error(`Invalid bounding box for ${componentId}`);
+                },
+                undefined,
+                (error) => {
+                    console.error(`Error loading GLB for ${componentId}:`, error);
+                    canvas.parentElement.innerHTML += '<p class="text-gray-500 text-center mt-2">Fehler beim Laden des Modells.</p>';
                 }
-            },
-            (progress) => {
-                console.log(`Loading progress for ${componentId}: ${progress.loaded}/${progress.total}`);
-            },
-            (error) => {
-                console.error(`Error loading GLB for ${componentId}:`, error);
-                canvas.parentElement.innerHTML += '<p class="text-gray-500 text-center mt-2">Fehler beim Laden des Modells.</p>';
-                // Add a placeholder cube on error
-                const geometry = new THREE.BoxGeometry(1, 1, 1);
-                const material = new THREE.MeshStandardMaterial({ color: 0xff0000, side: THREE.DoubleSide });
-                const cube = new THREE.Mesh(geometry, material);
-                scene.add(cube);
-                camera.position.z = 2;
-                controls.target.set(0, 0, 0);
+            );
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
                 controls.update();
+                renderer.render(scene, camera);
             }
-        );
+            animate();
 
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (container && container.clientWidth > 0 && container.clientHeight > 0) {
-                camera.aspect = container.clientWidth / container.clientHeight;
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
                 camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            }
-        });
-    }
+                renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            });
+        }
 
-    // Load projects on page load
-    window.onload = loadProjects;
-</script>
+        // Load projects on page load
+        window.onload = loadProjects;
+    </script>
