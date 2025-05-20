@@ -41,13 +41,24 @@
         <a href="{% url 'about' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
       </nav>
     </div>
-    <div class="dropdown relative">
-      <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50]">👤 Benutzer</button>
-      <div class="dropdown-content bg-gray-700 rounded shadow-lg">
-        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
-        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
-        <a href="#" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
-      </div>
+    <div id="user-section">
+        {% if user.is_authenticated %}
+            <div class="dropdown relative">
+                <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50] flex items-center focus:outline-none">
+                    👤 <span class="ml-1">{{ user.username }}</span>
+                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div class="dropdown-content bg-gray-700 rounded shadow-lg">
+                    <a href="{% url 'settings' %}" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+                    <a href="{% url 'profile' %}" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+                    <a href="{% url 'logout' %}" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
+                </div>
+            </div>
+        {% else %}
+            <a href="{% url 'login' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Login</a>
+        {% endif %}
     </div>
   </header>
 
@@ -64,7 +75,7 @@
         <input type="text" name="location" class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1" placeholder="z. B. Augsburg, DE" required>
 
         <label class="block text-[#F1FAEE] font-semibold mt-4">IFC-Datei hochladen:</label>
-        <input type="file" name="file" class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1" required>
+        <input type="file" name="file" accept=".ifc" class="w-full border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded mt-1" required>
 
         <label class="block text-[#F1FAEE] font-semibold mt-4">
           <input type="checkbox" name="skip_conversion" class="mr-2"> GLB-Konvertierung überspringen (schneller Upload)
@@ -81,8 +92,14 @@
       e.preventDefault();
       const form = e.target;
       const formData = new FormData(form);
+      const file = formData.get("file");
       const resultDiv = document.getElementById("result");
       resultDiv.innerHTML = "⏳ Hochladen läuft...";
+
+      if (!file.name.toLowerCase().endsWith(".ifc")) {
+        resultDiv.innerHTML = `<p class='text-red-500 mt-2'>❌ Nur .ifc-Dateien sind erlaubt.</p>`;
+        return;
+      }
 
       try {
         const res = await fetch("http://127.0.0.1:8001/upload/", {

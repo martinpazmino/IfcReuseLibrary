@@ -1,0 +1,108 @@
+{% extends "reuse/base.html" %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFC Component Selection</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <script src="https://unpkg.com/three"></script>
+    <script src="https://unpkg.com/@web-ifc/web-ifc-three"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="{% url 'home' %}">Home</a></li>
+                <li><a href="{% url 'catalog' %}">Katalog</a></li>
+                <li><a href="{% url 'upload_page' %}">Upload</a></li>
+                <li><a href="{% url 'api' %}">API</a></li>
+                <li><a href="{% url 'about' %}">Über Uns</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h1>IFC Component Selection</h1>
+        <p>Filename: {{ filename }}</p>
+        <div id="viewer" style="width: 100%; height: 500px;"></div>
+        <label>
+            <input type="checkbox" id="reuseFlag"> Mark Reusable
+        </label>
+        <button id="saveButton">Save</button>
+        <div id="status"></div>
+    </main>
+
+    <script>
+        const viewerContainer = document.getElementById('viewer');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, viewerContainer.offsetWidth / viewerContainer.offsetHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(viewerContainer.offsetWidth, viewerContainer.offsetHeight);
+        viewerContainer.appendChild(renderer.domElement);
+
+        const ifcLoader = new IFCLoader();
+        ifcLoader.ifcManager.setWasmPath('https://unpkg.com/@web-ifc/web-ifc-three@0.0.128/');
+
+        // Load IFC file
+        const filename = "{{ filename }}";
+        ifcLoader.load(`/uploads/${filename}`, (ifcModel) => {
+            scene.add(ifcModel);
+            camera.position.z = 5;
+            const animate = () => {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            };
+            animate();
+        });
+
+        let selectedComponents = [];
+
+        // Handle component selection
+        viewerContainer.addEventListener('click', async (event) => {
+            const rect = viewerContainer.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera({ x, y }, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                const component = intersects[0].object;
+                const expressID = component.expressID; // IFC.js assigns expressID to components
+                if (selectedComponents.includes(expressID)) {
+                    selectedComponents = selectedComponents.filter(id => id !== expressID);
+                    component.material.color.set(0xffffff); // Reset color
+                } else {
+                    selectedComponents.push(expressID);
+                    component.material.color.set(0x00ff00); // Highlight green
+                }
+            }
+        });
+
+        // Save selected components
+        document.getElementById('saveButton').addEventListener('click', async () => {
+            const reuseFlag = document.getElementById('reuseFlag').checked;
+            try {
+                const response = await fetch('{% url "save_components" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        filename: filename,
+                        componentIds: selectedComponents,
+                        reuseFlag: reuseFlag
+                    })
+                });
+                const result = await response.json();
+                document.getElementById('status').innerText = result.message || 'Error saving components';
+            } catch (error) {
+                document.getElementById('status').innerText = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
