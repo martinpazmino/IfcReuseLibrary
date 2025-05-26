@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFC-Visualisierung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% load static %}
+    <style>
+        #viewer {
+            width: 100%;
+            height: 600px;
+            background-color: #2d3748;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #2d3748;
+            min-width: 150px;
+            z-index: 1;
+        }
+        .dropdown:hover .dropdown-content {
+            display: none;
+        }
+        .dropdown.active .dropdown-content {
+            display: block;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #4a5568;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-900 text-[#F1FAEE]">
+    <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <img src="{% static 'logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+            <nav class="flex space-x-4 ml-4 text-lg">
+                <a href="{index.html}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+                <a href="{catalog.html}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
+                <a href="{upload.html}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
+                <a href="{api.html}" class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
+                <a href="{about.html}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+            </nav>
+        </div>
+        <div id="user-section">
+            {% if user.is_authenticated %}
+                <div class="dropdown relative">
+                    <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50] flex items-center focus:outline-none">
+                        👤 <span class="ml-1">{{ user.username }}</span>
+                        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div class="dropdown-content bg-gray-700 rounded shadow-lg">
+                        <a href="{settings.html}" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+                        <a href="{profile.html}" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+                        <a href="{logout.html}" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
+                    </div>
+                </div>
+            {% else %}
+                <button id="login-btn" class="text-[#F1FAEE] hover:text-[#4CAF50]">Login</button>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-6 py-12">
+        <section>
+            <h2 class="text-2xl font-bold text-[#F1FAEE] text-center mb-6">IFC-Modell Visualisierung</h2>
+            <p class="text-gray-400 text-center mb-6">Lade eine IFC-Datei hoch und wähle wiederverwendbare Bauteile aus.</p>
+
+            <div id="viewer" style="width: 100%; height: 600px;"></div>
+            <div class="mt-4 flex items-center">
+                <input type="file" id="ifc-upload" accept=".ifc" class="border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded">
+                <button id="load-ifc-btn" class="ml-2 bg-[#4CAF50] text-white py-2 px-4 rounded">Laden</button>
+                <div id="progress-container" class="ml-4 w-1/4 hidden">
+                    <div class="progress-bar">
+                        <div id="progress" class="progress"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="status" class="mt-2 text-center text-yellow-400"></div>
+            <h3 class="mt-6 text-lg font-semibold">Ausgewählte Elemente</h3>
+            <ul id="selected-elements" class="list-disc list-inside mt-2 bg-gray-800 p-4 rounded"></ul>
+            <button id="clear-selection" class="mt-4 bg-red-600 text-white py-2 px-4 rounded hidden">Auswahl löschen</button>
+        </section>
+    </main>
+
+    <footer class="bg-gray-800 text-[#F1FAEE] py-2 mt-auto">
+        <div class="container mx-auto px-4 text-center">
+            <h3 class="text-lg font-bold mb-2">Kontakt</h3>
+            <div class="space-y-1 text-sm">
+                <p>E-Mail: <a href="mailto:kontakt@ifc-reuse.com" class="text-[#4CAF50] hover:underline">kontakt@ifc-reuse.com</a></p>
+                <p>Adresse: An d. Hochschule 1, 86161 Augsburg</p>
+                <p>Telefon: 0821 55860</p>
+                <p>Öffnungszeiten: Montag bis Freitag 9:00–17:00</p>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">© 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
+        </div>
+    </footer>
+
+    <div id="modal-overlay" class="fixed z-50 inset-0 flex items-center justify-center modal-bg hidden">
+        <div class="bg-gray-800 rounded-xl p-8 w-full max-w-md relative border border-gray-600">
+            <button id="close-modal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-200 text-xl">×</button>
+            <form id="login-form" action="{% url 'login' %}" method="post">
+                {% csrf_token %}
+                <h2 class="text-2xl font-bold mb-4 text-center">Login</h2>
+                <label class="block mb-2">Benutzername oder E-Mail</label>
+                <input type="text" name="username" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">Passwort</label>
+                <input type="password" name="password" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <button type="submit" class="w-full bg-[#4CAF50] text-white py-2 rounded-lg font-semibold">Anmelden</button>
+                <div class="mt-4 text-center">
+                    <button type="button" id="show-register" class="text-[#4CAF50] hover:underline">Noch keinen Account? Registrieren</button>
+                </div>
+            </form>
+            <form id="register-form" action="{% url 'register' %}" method="post" class="hidden">
+                {% csrf_token %}
+                <h2 class="text-2xl font-bold mb-4 text-center">Registrieren</h2>
+                <label class="block mb-2">Benutzername</label>
+                <input type="text" name="username" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">E-Mail</label>
+                <input type="email" name="email" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">Passwort</label>
+                <input type="password" name="password" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">Passwort wiederholen</label>
+                <input type="password" name="password_confirm" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <button type="submit" class="w-full bg-[#4CAF50] text-white py-2 rounded-lg font-semibold">Registrieren</button>
+                <div class="mt-4 text-center">
+                    <button type="button" id="show-login" class="text-[#4CAF50] hover:underline">Zurück zum Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/web-ifc-viewer@1.0.217/dist/ifc.js"></script>
+    <script>
+        // Initialisierung
+        const viewer = new IfcViewerAPI({ container: document.getElementById('viewer') });
+        const scene = viewer.context.getScene();
+        const camera = viewer.context.getCamera();
+        const renderer = viewer.context.getRenderer();
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        // Lichter
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);
+        const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.5);
+        scene.add(ambientLight, directionalLight);
+
+        // WASM-Pfad
+        viewer.IFC.setWasmPath('https://unpkg.com/web-ifc-viewer@1.0.217/dist/');
+
+        // Globale Variablen
+        let selectedGuids = [];
+        let model = null;
+
+        // DOM-Elemente
+        const progressContainer = document.getElementById('progress-container');
+        const progress = document.getElementById('progress');
+        const status = document.getElementById('status');
+        const clearSelectionBtn = document.getElementById('clear-selection');
+
+        // Datei-Upload mit Fortschritt
+        document.getElementById('load-ifc-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('ifc-upload');
+            const file = fileInput.files[0];
+            if (!file) {
+                status.textContent = 'Keine Datei ausgewählt.';
+                return;
+            }
+            if (!file.name.toLowerCase().endswith('.ifc')) {
+                status.textContent = 'Nur .ifc-Dateien sind erlaubt.';
+                return;
+            }
+
+            progressContainer.classList.remove('hidden');
+            status.textContent = 'Lade Datei...';
+            const url = URL.createObjectURL(file);
+            try {
+                await viewer.IFC.loadIfcUrl(url, null, (progressEvent) => {
+                    const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                    progress.style.width = `${percent}%`;
+                    status.textContent = `Lade Fortschritt: ${percent}%`;
+                });
+                model = viewer.context.items.ifcModels[0]; // Aktuelles Modell speichern
+                status.textContent = 'Datei erfolgreich geladen.';
+                fileInput.value = '';
+            } catch (error) {
+                status.textContent = 'Fehler beim Laden der Datei: ' + error.message;
+            } finally {
+                progress.style.width = '0';
+                setTimeout(() => progressContainer.classList.add('hidden'), 500);
+            }
+        });
+
+        // Raycasting und Auswahl
+        window.addEventListener('click', async (event) => {
+            if (!model) {
+                status.textContent = 'Lade zuerst eine IFC-Datei.';
+                return;
+            }
+            const found = await viewer.IFC.selector.pickIfcItem(event, true, model.modelID);
+            if (found) {
+                const globalId = found.id; // Nutze found.id als GlobalId (abhängig von ifc.js-Version)
+                if (!selectedGuids.includes(globalId)) {
+                    selectedGuids.push(globalId);
+                    updateSelectedElementsList();
+                    highlightElement(model.modelID, globalId);
+                    clearSelectionBtn.classList.remove('hidden');
+                }
+            }
+        });
+
+        // Elemente hervorheben
+        function highlightElement(modelID, elementID) {
+            const material = new THREE.MeshBasicMaterial({ color: 0xFF0000, transparent: true, opacity: 0.7 });
+            viewer.IFC.setMaterial(modelID, elementID, material);
+        }
+
+        // Auswahl löschen
+        clearSelectionBtn.addEventListener('click', () => {
+            selectedGuids.forEach(globalId => {
+                viewer.IFC.unsetMaterial(model.modelID, globalId); // Material zurücksetzen
+            });
+            selectedGuids = [];
+            updateSelectedElementsList();
+            clearSelectionBtn.classList.add('hidden');
+        });
+
+        // Ausgewählte Elemente anzeigen
+        function updateSelectedElementsList() {
+            const list = document.getElementById('selected-elements');
+            list.innerHTML = selectedGuids.map(id => `<li>${id} <button class="text-red-400 hover:text-red-300" onclick="removeElement('${id}')">Entfernen</button></li>`).join('');
+        }
+
+        // Element aus Auswahl entfernen
+        window.removeElement = function(id) {
+            const index = selectedGuids.indexOf(id);
+            if (index > -1) {
+                viewer.IFC.unsetMaterial(model.modelID, id); // Material zurücksetzen
+                selectedGuids.splice(index, 1);
+                updateSelectedElementsList();
+                if (selectedGuids.length === 0) clearSelectionBtn.classList.add('hidden');
+            }
+        };
+
+        // Dropdown- und Modal-Logik
+        window.toggleDropdown = function(event) {
+            event.stopPropagation();
+            const dropdown = event.currentTarget.closest('.dropdown');
+            dropdown.classList.toggle('active');
+        };
+
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'login-btn') {
+                document.getElementById('modal-overlay').classList.remove('hidden');
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+            }
+            if (e.target && (e.target.id === 'close-modal' || e.target.id === 'modal-overlay')) {
+                document.getElementById('modal-overlay').classList.add('hidden');
+            }
+            if (e.target && e.target.id === 'show-register') {
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('register-form').classList.remove('hidden');
+            }
+            if (e.target && e.target.id === 'show-login') {
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+            }
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown').forEach(drop => drop.classList.remove('active'));
+            }
+        });
+    </script>
+</body>
+</html>
