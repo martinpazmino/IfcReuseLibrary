@@ -1,304 +1,331 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
-import os
-import shutil
-import ifcopenshell
-from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import List
-import subprocess
-from sqlalchemy.sql import text
-import uuid
-import re
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFC-Visualisierung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% load static %}
+    <style>
+        #viewer {
+            width: 100%;
+            height: 600px;
+            background-color: #2d3748;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #2d3748;
+            min-width: 150px;
+            z-index: 1;
+        }
+        .dropdown:hover .dropdown-content {
+            display: none;
+        }
+        .dropdown.active .dropdown-content {
+            display: block;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #4a5568;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-900 text-[#F1FAEE]">
+    <header class="bg-gray-800 shadow-md py-4 px-6 flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <img src="{% static 'logo.jpg' %}" alt="Logo" class="h-20 mx-2">
+            <nav class="flex space-x-4 ml-4 text-lg">
+                <a href="{% url 'index' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Home</a>
+                <a href="{% url 'catalog' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Katalog</a>
+                <a href="{% url 'upload_page' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Upload</a>
+                <a href="{% url 'api' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">API</a>
+                <a href="{% url 'about' %}" class="text-[#F1FAEE] hover:text-[#4CAF50]">Über Uns</a>
+            </nav>
+        </div>
+        <div id="user-section">
+            {% if user.is_authenticated %}
+                <div class="dropdown relative">
+                    <button onclick="toggleDropdown(event)" class="text-[#F1FAEE] hover:text-[#4CAF50] flex items-center focus:outline-none">
+                        👤 <span class="ml-1">{{ user.username }}</span>
+                        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div class="dropdown-content bg-gray-700 rounded shadow-lg">
+                        <a href="{% url 'settings' %}" class="block px-4 py-2 hover:bg-gray-600">Einstellungen</a>
+                        <a href="{% url 'profile' %}" class="block px-4 py-2 hover:bg-gray-600">Profil</a>
+                        <a href="{% url 'logout' %}" class="block px-4 py-2 hover:bg-gray-600">Abmelden</a>
+                    </div>
+                </div>
+            {% else %}
+                <button id="login-btn" class="text-[#F1FAEE] hover:text-[#4CAF50]">Login</button>
+            {% endif %}
+        </div>
+    </header>
 
-from api.database import SessionLocal, Project, User
+    <main class="flex-grow container mx-auto px-6 py-12">
+        <section>
+            <h2 class="text-2xl font-bold text-[#F1FAEE] text-center mb-6">IFC-Modell Visualisierung</h2>
+            <p class="text-gray-400 text-center mb-6">Lade eine IFC-Datei hoch und wähle wiederverwendbare Bauteile aus.</p>
 
-app = FastAPI()
+            <div id="viewer" style="width: 100%; height: 600px;"></div>
+            <div class="mt-4 flex items-center">
+                <input type="file" id="ifc-upload" accept=".ifc" class="border border-gray-600 bg-gray-700 text-[#F1FAEE] p-2 rounded">
+                <button id="load-ifc-btn" class="ml-2 bg-[#4CAF50] text-white py-2 px-4 rounded">Laden</button>
+                <div id="progress-container" class="ml-4 w-1/4 hidden">
+                    <div class="progress-bar">
+                        <div id="progress" class="progress"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="status" class="mt-2 text-center text-yellow-400"></div>
+            <h3 class="mt-6 text-lg font-semibold">Ausgewählte Elemente</h3>
+            <ul id="selected-elements" class="list-disc list-inside mt-2 bg-gray-800 p-4 rounded"></ul>
+            <div class="mt-4 flex space-x-4">
+                <button id="mark-reusable" class="bg-[#4CAF50] text-white py-2 px-6 rounded font-semibold hover:bg-[#45a049] hidden">Als wiederverwendbar markieren</button>
+                <button id="clear-selection" class="bg-red-600 text-white py-2 px-4 rounded hidden">Auswahl löschen</button>
+            </div>
+        </section>
+    </main>
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://127.0.0.1:8080"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    <footer class="bg-gray-800 text-[#F1FAEE] py-2 mt-auto">
+        <div class="container mx-auto px-4 text-center">
+            <h3 class="text-lg font-bold mb-2">Kontakt</h3>
+            <div class="space-y-1 text-sm">
+                <p>E-Mail: <a href="mailto:kontakt@ifc-reuse.com" class="text-[#4CAF50] hover:underline">kontakt@ifc-reuse.com</a></p>
+                <p>Adresse: An d. Hochschule 1, 86161 Augsburg</p>
+                <p>Telefon: 0821 55860</p>
+                <p>Öffnungszeiten: Montag bis Freitag 9:00–17:00</p>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">© 2025 IFC Reuse Platform. Alle Rechte vorbehalten.</p>
+        </div>
+    </footer>
 
-# Folder configuration
-BUCKET_FOLDER = os.path.join("uploads", "ifc-bucket")
-GLB_FOLDER = os.path.join("uploads", "glb")
-TEMP_FOLDER = os.path.join("uploads", "temp_ifcs")
-os.makedirs(BUCKET_FOLDER, exist_ok=True)
-os.makedirs(GLB_FOLDER, exist_ok=True)
-os.makedirs(TEMP_FOLDER, exist_ok=True)
+    <div id="modal-overlay" class="fixed z-50 inset-0 flex items-center justify-center modal-bg hidden">
+        <div class="bg-gray-800 rounded-xl p-8 w-full max-w-md relative border border-gray-600">
+            <button id="close-modal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-200 text-xl">×</button>
+            <form id="login-form" action="{% url 'login' %}" method="post">
+                {% csrf_token %}
+                <h2 class="text-2xl font-bold mb-4 text-center">Login</h2>
+                <label class="block mb-2">Benutzername oder E-Mail</label>
+                <input type="text" name="username" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">Passwort</label>
+                <input type="password" name="password" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <button type="submit" class="w-full bg-[#4CAF50] text-white py-2 rounded-lg font-semibold">Anmelden</button>
+                <div class="mt-4 text-center">
+                    <button type="button" id="show-register" class="text-[#4CAF50] hover:underline">Noch keinen Account? Registrieren</button>
+                </div>
+            </form>
+            <form id="register-form" action="{% url 'register' %}" method="post" class="hidden">
+                {% csrf_token %}
+                <h2 class="text-2xl font-bold mb-4 text-center">Registrieren</h2>
+                <label class="block mb-2">Benutzername</label>
+                <input type="text" name="username" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">E-Mail</label>
+                <input type="email" name="email" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">Passwort</label>
+                <input type="password" name="password" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <label class="block mb-2">Passwort wiederholen</label>
+                <input type="password" name="password_confirm" class="w-full border border-gray-600 bg-gray-700 rounded-lg p-2 mb-4 text-[#F1FAEE]" required>
+                <button type="submit" class="w-full bg-[#4CAF50] text-white py-2 rounded-lg font-semibold">Registrieren</button>
+                <div class="mt-4 text-center">
+                    <button type="button" id="show-login" class="text-[#4CAF50] hover:underline">Zurück zum Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-# IfcConvert configuration
-IFCCONVERT_PATH = r"C:\IfcConvert\IfcConvert.exe"  # Adjust to your server's IfcConvert path
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/web-ifc-viewer@1.0.217/dist/ifc.js"></script>
+    <script>
+        // Initialisierung
+        const viewer = new IfcViewerAPI({ container: document.getElementById('viewer') });
+        const scene = viewer.context.getScene();
+        const camera = viewer.context.getCamera();
+        const renderer = viewer.context.getRenderer();
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-# Supported IFC component types
-COMPONENT_TYPES = [
-    "IfcWall",
-    "IfcWindow",
-    "IfcSlab",
-    "IfcBeam",
-    "IfcColumn",
-    "IfcDoor",
-    "IfcSpace"
-]
+        // Lichter
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);
+        const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.5);
+        scene.add(ambientLight, directionalLight);
 
-def export_single_element_to_ifc(model, element, output_path):
-    """Export a single IFC element to a new IFC file."""
-    new_model = ifcopenshell.file()
-    new_model.add(element)
-    new_model.write(output_path)
+        // WASM-Pfad
+        viewer.IFC.setWasmPath('https://unpkg.com/web-ifc-viewer@1.0.217/dist/');
 
-def convert_ifc_components_to_glb(ifc_path, output_glb_dir):
-    """Convert IFC components to GLB files using IfcConvert."""
-    model = ifcopenshell.open(ifc_path)
-    total = 0
-    errors = []
+        // Globale Variablen
+        let selectedGuids = [];
+        let model = null;
+        let filename = '';
 
-    for comp_type in COMPONENT_TYPES:
-        elements = model.by_type(comp_type)
-        print(f"🔸 {comp_type}: {len(elements)} elements found")
+        // DOM-Elemente
+        const progressContainer = document.getElementById('progress-container');
+        const progress = document.getElementById('progress');
+        const status = document.getElementById('status');
+        const clearSelectionBtn = document.getElementById('clear-selection');
+        const markReusableBtn = document.getElementById('mark-reusable');
 
-        for element in elements:
-            guid = element.GlobalId
-            glb_filename = f"{guid}_{comp_type}.glb"
-            glb_output_path = os.path.join(output_glb_dir, glb_filename)
-            temp_ifc_path = os.path.join(TEMP_FOLDER, f"{guid}.ifc")
+        // Datei-Upload mit Fortschritt
+        document.getElementById('load-ifc-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('ifc-upload');
+            const file = fileInput.files[0];
+            if (!file) {
+                status.textContent = 'Keine Datei ausgewählt.';
+                return;
+            }
+            if (!file.name.toLowerCase().endswith('.ifc')) {
+                status.textContent = 'Nur .ifc-Dateien sind erlaubt.';
+                return;
+            }
 
-            # Export single element to temporary IFC
-            try:
-                export_single_element_to_ifc(model, element, temp_ifc_path)
-            except Exception as e:
-                print(f"❌ Error exporting IFC for {guid}: {str(e)}")
-                errors.append(guid)
-                continue
+            filename = file.name; // Dateinamen speichern
+            progressContainer.classList.remove('hidden');
+            status.textContent = 'Lade Datei...';
+            const url = URL.createObjectURL(file);
+            try {
+                await viewer.IFC.loadIfcUrl(url, null, (progressEvent) => {
+                    const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                    progress.style.width = `${percent}%`;
+                    status.textContent = `Lade Fortschritt: ${percent}%`;
+                });
+                model = viewer.context.items.ifcModels[0]; // Aktuelles Modell speichern
+                status.textContent = 'Datei erfolgreich geladen.';
+                fileInput.value = '';
+            } catch (error) {
+                status.textContent = 'Fehler beim Laden der Datei: ' + error.message;
+            } finally {
+                progress.style.width = '0';
+                setTimeout(() => progressContainer.classList.add('hidden'), 500);
+            }
+        });
 
-            # Run IfcConvert to generate GLB
-            command = [
-                IFCCONVERT_PATH,
-                temp_ifc_path,
-                glb_output_path,
-                "--use-element-guids"
-            ]
+        // Raycasting und Auswahl
+        window.addEventListener('click', async (event) => {
+            if (!model) {
+                status.textContent = 'Lade zuerst eine IFC-Datei.';
+                return;
+            }
+            const found = await viewer.IFC.selector.pickIfcItem(event, true, model.modelID);
+            if (found) {
+                const globalId = found.id;
+                if (!selectedGuids.includes(globalId)) {
+                    selectedGuids.push(globalId);
+                    updateSelectedElementsList();
+                    highlightElement(model.modelID, globalId);
+                    clearSelectionBtn.classList.remove('hidden');
+                    markReusableBtn.classList.remove('hidden');
+                }
+            }
+        });
 
-            try:
-                result = subprocess.run(
-                    command,
-                    check=True,
-                    capture_output=True,
-                    text=True
-                )
-                if os.path.exists(glb_output_path):
-                    print(f"✅ {glb_filename} generated")
-                    total += 1
-                else:
-                    print(f"⚠️ {glb_filename} not created")
-                    errors.append(guid)
-            except subprocess.CalledProcessError as e:
-                print(f"❌ Error converting {guid}: {e.stderr}")
-                errors.append(guid)
-            except Exception as e:
-                print(f"❌ Unexpected error for {guid}: {str(e)}")
-                errors.append(guid)
-            finally:
-                # Clean up temporary IFC file
-                if os.path.exists(temp_ifc_path):
-                    try:
-                        os.remove(temp_ifc_path)
-                    except Exception as e:
-                        print(f"⚠️ Failed to delete {temp_ifc_path}: {str(e)}")
-
-    print("\n==== Conversion Summary ====")
-    print(f"🔧 GLB files created: {total}")
-    if errors:
-        print(f"⚠️ Failed components: {len(errors)}")
-        for guid in errors:
-            print(f" - {guid}")
-    else:
-        print("✅ All components converted successfully")
-    return total, errors
-
-@app.post("/upload")
-async def upload_ifc_file(
-    file: UploadFile = File(...),
-    projectName: str = Form(...),
-    location: str = Form(...)
-):
-    try:
-        # Save uploaded IFC file
-        file_path = os.path.join(BUCKET_FOLDER, file.filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        # Parse IFC for summary
-        model = ifcopenshell.open(file_path)
-        print("[DEBUG] IFC Types:")
-        for t in COMPONENT_TYPES:
-            print(f"{t}: {len(model.by_type(t))}")
-
-        summary = {
-            "filename": file.filename,
-            "walls": len(model.by_type("IfcWall")),
-            "windows": len(model.by_type("IfcWindow")),
-            "slabs": len(model.by_type("IfcSlab")),
-            "beams": len(model.by_type("IfcBeam")),
-            "columns": len(model.by_type("IfcColumn")),
-            "doors": len(model.by_type("IfcDoor")),
-            "spaces": len(model.by_type("IfcSpace")),
+        // Elemente hervorheben
+        function highlightElement(modelID, elementID) {
+            const material = new THREE.MeshBasicMaterial({ color: 0xFF0000, transparent: true, opacity: 0.7 });
+            viewer.IFC.setMaterial(modelID, elementID, material);
         }
 
-        # Database logic
-        db = SessionLocal()
-        # Generate a valid UUID for the user
-        mock_user_id = str(uuid.uuid4())
-        # Validate that mock_user_id is a valid UUID
-        uuid_pattern = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-        if not uuid_pattern.match(mock_user_id):
-            raise ValueError(f"Generated user_id {mock_user_id} is not a valid UUID")
+        // Auswahl löschen
+        clearSelectionBtn.addEventListener('click', () => {
+            selectedGuids.forEach(globalId => {
+                viewer.IFC.unsetMaterial(model.modelID, globalId);
+            });
+            selectedGuids = [];
+            updateSelectedElementsList();
+            clearSelectionBtn.classList.add('hidden');
+            markReusableBtn.classList.add('hidden');
+        });
 
-        user = db.query(User).filter_by(id=mock_user_id).first()
-        if not user:
-            user = User(
-                id=mock_user_id,
-                name="Mock User",
-                email="mock@example.com",
-                password_hash="hash",
-                created_at=datetime.utcnow()
-            )
-            db.add(user)
-            db.commit()
-
-        # Generate a valid UUID for the project
-        project_id = str(uuid.uuid4())
-        if not uuid_pattern.match(project_id):
-            raise ValueError(f"Generated project_id {project_id} is not a valid UUID")
-
-        project = Project(
-            id=project_id,
-            user_id=mock_user_id,
-            name=projectName,
-            description="Uploaded via form",
-            location=location,
-            filename=file.filename
-        )
-        db.add(project)
-        db.commit()
-        db.refresh(project)
-        db.close()
-
-        # Convert IFC components to GLB
-        project_glb_dir = os.path.join(GLB_FOLDER, os.path.splitext(file.filename)[0])
-        os.makedirs(project_glb_dir, exist_ok=True)
-        print(f"[INFO] Exporting components to {project_glb_dir}")
-        total, errors = convert_ifc_components_to_glb(file_path, project_glb_dir)
-
-        # Include conversion results in response
-        summary["glb_files_created"] = total
-        summary["failed_components"] = errors
-
-        return {
-            "message": "IFC file uploaded, parsed, and components converted to GLB successfully",
-            "data": summary
+        // Ausgewählte Elemente anzeigen
+        function updateSelectedElementsList() {
+            const list = document.getElementById('selected-elements');
+            list.innerHTML = selectedGuids.map(id => `<li>${id} <button class="text-red-400 hover:text-red-300" onclick="removeElement('${id}')">Entfernen</button></li>`).join('');
         }
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        // Element aus Auswahl entfernen
+        window.removeElement = function(id) {
+            const index = selectedGuids.indexOf(id);
+            if (index > -1) {
+                viewer.IFC.unsetMaterial(model.modelID, id);
+                selectedGuids.splice(index, 1);
+                updateSelectedElementsList();
+                if (selectedGuids.length === 0) {
+                    clearSelectionBtn.classList.add('hidden');
+                    markReusableBtn.classList.add('hidden');
+                }
+            }
+        };
 
-@app.get("/components/{component_id}/glb")
-def serve_glb(component_id: str):
-    for root, _, files in os.walk(GLB_FOLDER):
-        for file in files:
-            if file.startswith(component_id) and file.endswith(".glb"):
-                return FileResponse(os.path.join(root, file), media_type="model/gltf-binary")
-    raise HTTPException(status_code=404, detail="GLB not found")
+        // Markieren als wiederverwendbar
+        markReusableBtn.addEventListener('click', async () => {
+            if (selectedGuids.length === 0) {
+                status.textContent = 'Keine Elemente ausgewählt.';
+                return;
+            }
+            if (!filename) {
+                status.textContent = 'Keine Datei geladen.';
+                return;
+            }
+            const data = { filename, selectedGuids };
+            try {
+                const response = await fetch('http://localhost:8001/api/mark_reusable/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                if (response.ok) {
+                    status.textContent = 'Komponenten erfolgreich als wiederverwendbar markiert!';
+                    selectedGuids.forEach(globalId => viewer.IFC.unsetMaterial(model.modelID, globalId));
+                    selectedGuids = [];
+                    updateSelectedElementsList();
+                    clearSelectionBtn.classList.add('hidden');
+                    markReusableBtn.classList.add('hidden');
+                } else {
+                    status.textContent = 'Fehler beim Absenden der Auswahl.';
+                }
+            } catch (error) {
+                console.error('Fehler beim Absenden:', error);
+                status.textContent = 'Absenden fehlgeschlagen: ' + error.message;
+            }
+        });
 
-class Component(BaseModel):
-    id: str = Field(...)
-    name: str
-    type: str
+        // Dropdown- und Modal-Logik
+        window.toggleDropdown = function(event) {
+            event.stopPropagation();
+            const dropdown = event.currentTarget.closest('.dropdown');
+            dropdown.classList.toggle('active');
+        };
 
-class ProjectModel(BaseModel):
-    id: str
-    name: str
-    components: List[Component] = []
-
-@app.get("/projects/")
-def get_projects():
-    try:
-        db = SessionLocal()
-        projects = db.query(Project).all()
-        db.close()
-
-        project_models = []
-        for project in projects:
-            # Use the stored filename to find the GLB folder
-            glb_dir = os.path.join(GLB_FOLDER, os.path.splitext(project.filename)[0]) if project.filename else None
-            components = []
-            if glb_dir and os.path.isdir(glb_dir):
-                for file in os.listdir(glb_dir):
-                    if file.endswith(".glb"):
-                        parts = file.rsplit("_", 1)
-                        if len(parts) == 2 and parts[1].endswith(".glb"):
-                            guid = parts[0]
-                            comp_type = parts[1].replace(".glb", "")
-                            name = comp_type.replace("Ifc", "")
-                            components.append(
-                                Component(
-                                    id=guid,
-                                    name=name,
-                                    type=comp_type
-                                )
-                            )
-
-            project_models.append(
-                ProjectModel(
-                    id=str(project.id),
-                    name=project.name,
-                    components=components
-                )
-            )
-
-        return project_models
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
-
-@app.delete("/delete-projects")
-async def delete_all_projects(token: str = Form(...)):
-    """Delete all projects and their associated components from the database."""
-    # Simple token-based authentication for development (replace with proper auth in production)
-    if token != "delete_all_projects_123":
-        raise HTTPException(status_code=403, detail="Invalid token")
-
-    try:
-        db = SessionLocal()
-        # Delete all components to satisfy foreign key constraint
-        db.execute(text("DELETE FROM components"))
-        # Delete all projects
-        db.query(Project).delete()
-        db.commit()
-        db.close()
-
-        # Optional: Clean up GLB and IFC folders (uncomment if desired)
-        # if os.path.exists(GLB_FOLDER):
-        #     shutil.rmtree(GLB_FOLDER)
-        # if os.path.exists(BUCKET_FOLDER):
-        #     shutil.rmtree(BUCKET_FOLDER)
-        # os.makedirs(GLB_FOLDER, exist_ok=True)
-        # os.makedirs(BUCKET_FOLDER, exist_ok=True)
-
-        return {"message": "All projects and components deleted successfully"}
-
-    except Exception as e:
-        db.rollback()
-        db.close()
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error deleting projects: {str(e)}")
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'login-btn') {
+                document.getElementById('modal-overlay').classList.remove('hidden');
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+            }
+            if (e.target && (e.target.id === 'close-modal' || e.target.id === 'modal-overlay')) {
+                document.getElementById('modal-overlay').classList.add('hidden');
+            }
+            if (e.target && e.target.id === 'show-register') {
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('register-form').classList.remove('hidden');
+            }
+            if (e.target && e.target.id === 'show-login') {
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+            }
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown').forEach(drop => drop.classList.remove('active'));
+            }
+        });
+    </script>
+</body>
+</html>
