@@ -2,8 +2,6 @@
 
 Um die Qualität und Funktionalität der Website des Projekts `IfcReuseLibrary` (https://github.com/martinpazmino/IfcReuseLibrary) sicherzustellen, sollten Tests auf die Kernfunktionalitäten abzielen und in GitHub-Workflows integrierbar sein. Das Projekt umfasst ein Django-basiertes Frontend mit Three.js und ifc.js für die Visualisierung von IFC-Dateien, ein FastAPI-Backend zur Markierung wiederverwendbarer Komponenten und eine Katalogansicht. Nachfolgend werden zwei Tests vorgeschlagen, die sich gut eignen: **Unit-Tests für Django-Views und FastAPI-Endpunkte** sowie **End-to-End-Tests für den IFC-Upload- und Auswahl-Workflow**. Beide Tests können über GitHub Actions automatisiert werden.
 
-## Vorgeschlagene Tests
-
 ### 1. Unit-Tests für Django-Views und FastAPI-Endpunkte
 **Beschreibung**:  
 Unit-Tests überprüfen einzelne Komponenten der Anwendung isoliert, z. B. die Django-Views für die Visualisierungsseite (`reuse/select.html`) und die Katalogansicht (`catalog.html`) sowie den FastAPI-Endpunkt `/mark_reusable/`. Diese Tests stellen sicher, dass die Backend-Logik korrekt funktioniert, z. B. das Rendern von Vorlagen, das Verarbeiten von POST-Anfragen und das Aktualisieren von IFC-Dateien.
