@@ -1,94 +1,270 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Mark Reusable Components</title>
+  <title>Wiederverwendbare Komponenten markieren</title>
+  <!-- Tailwind CSS für einfaches Styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
+    // Importiere benötigte Module
     import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
     import { OrbitControls } from 'https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js';
     import { IFCLoader } from 'https://unpkg.com/web-ifc-three@0.0.152/IFCLoader.js';
 
+    // Globale Variablen
     let scene, camera, renderer, controls, ifcLoader;
     let selectedGuids = new Set();
+    let model = null;
+    let filename = '';
 
+    // Initialisierung
     init();
 
     function init() {
+      // Viewer-Container initialisieren
       const container = document.getElementById("viewer");
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x202020);
 
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+      // Kamera konfigurieren
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(10, 10, 10);
 
+      // Renderer konfigurieren
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       container.appendChild(renderer.domElement);
 
+      // OrbitControls für Navigation
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
+      // Beleuchtung hinzufügen
       const light = new THREE.DirectionalLight(0xffffff, 1);
       light.position.set(10, 10, 10);
       scene.add(light);
-
       const ambient = new THREE.AmbientLight(0x404040);
       scene.add(ambient);
 
+      // IFCLoader initialisieren
       ifcLoader = new IFCLoader();
       ifcLoader.ifcManager.setWasmPath("https://unpkg.com/web-ifc@0.0.38/");
 
+      // Animation starten
       animate();
 
-      document.getElementById("ifc-file").addEventListener("change", async (e) => {
-        const file = e.target.files[0];
-        const url = URL.createObjectURL(file);
-        const model = await ifcLoader.loadAsync(url);
-        scene.add(model);
-      });
+      // Event-Listener für Datei-Upload
+      document.getElementById("upload-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById("ifc-file");
+        const file = fileInput.files[0];
+        if (!file) {
+          document.getElementById("status").textContent = 'Keine Datei ausgewählt.';
+          return;
+        }
+        if (!file.name.toLowerCase().endsWith('.ifc')) {
+          document.getElementById("status").textContent = 'Nur .ifc-Dateien sind erlaubt.';
+          return;
+        }
 
-      window.addEventListener('click', async (event) => {
-        const found = await ifcLoader.ifcManager.pickIfcItem(event, camera, renderer.domElement);
-        if (!found) return;
-        const props = await ifcLoader.ifcManager.getItemProperties(found.modelID, found.id);
-        if (props.GlobalId) {
-          selectedGuids.add(props.GlobalId.value);
-          console.log("Marked reusable:", props.GlobalId.value);
+        filename = file.name;
+        const progressContainer = document.getElementById('progress-container');
+        progressContainer.classList.remove('hidden');
+        document.getElementById("status").textContent = 'Lade Datei...';
+
+        // Datei über Django-View hochladen
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('projectName', document.getElementById('project-name').value || 'Testprojekt');
+        formData.append('location', document.getElementById('location').value || 'Teststandort');
+
+        try {
+          const uploadResponse = await fetch('/upload/', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!uploadResponse.ok) {
+            throw new Error('Fehler beim Hochladen der Datei.');
+          }
+          const uploadResult = await uploadResponse.json();
+          if (uploadResult.error) {
+            throw new Error(uploadResult.detail);
+          }
+          filename = uploadResult.data.filename;
+
+          // IFC-Datei im Browser visualisieren
+          const url = URL.createObjectURL(file);
+          model = await ifcLoader.loadAsync(url, (progressEvent) => {
+            const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+            document.getElementById('progress').style.width = `${percent}%`;
+            document.getElementById("status").textContent = `Lade Fortschritt: ${percent}%`;
+          });
+          scene.add(model);
+          document.getElementById("status").textContent = 'Datei erfolgreich geladen.';
+          document.getElementById("ifc-file").value = '';
+        } catch (error) {
+          document.getElementById("status").textContent = 'Fehler beim Laden der Datei: ' + error.message;
+          console.error('Fehler:', error);
+        } finally {
+          document.getElementById('progress').style.width = '0';
+          setTimeout(() => progressContainer.classList.add('hidden'), 500);
         }
       });
 
+      // Event-Listener für Elementauswahl
+      window.addEventListener('click', async (event) => {
+        if (!model) {
+          document.getElementById("status").textContent = 'Lade zuerst eine IFC-Datei.';
+          return;
+        }
+        const found = await ifcLoader.ifcManager.pickIfcItem(event, camera, renderer.domElement);
+        if (!found) return;
+        const props = await ifcLoader.ifcManager.getItemProperties(found.modelID, found.id);
+        if (props.GlobalId && props.GlobalId.value) {
+          if (!selectedGuids.has(props.GlobalId.value)) {
+            selectedGuids.add(props.GlobalId.value);
+            updateSelectedElementsList();
+            highlightElement(found.modelID, found.id);
+            document.getElementById("clear-selection").classList.remove('hidden');
+            document.getElementById("submit-btn").classList.remove('hidden');
+          }
+        }
+      });
+
+      // Event-Listener für das Markieren als wiederverwendbar
       document.getElementById("submit-btn").addEventListener("click", async () => {
-        const filename = document.getElementById("filename").value;
+        if (selectedGuids.size === 0) {
+          document.getElementById("status").textContent = 'Keine Elemente ausgewählt.';
+          return;
+        }
+        if (!filename) {
+          document.getElementById("status").textContent = 'Keine Datei geladen.';
+          return;
+        }
         const body = JSON.stringify({
           filename: filename,
-          reusable_ids: Array.from(selectedGuids)
+          selectedGuids: Array.from(selectedGuids)
         });
 
-        const res = await fetch("http://localhost:8001/mark_reusable/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: body
-        });
+        try {
+          const res = await fetch("http://localhost:8001/api/mark_reusable/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: body
+          });
+          if (res.ok) {
+            const result = await res.json();
+            document.getElementById("status").textContent = `Komponenten erfolgreich als wiederverwendbar markiert! Neue Datei: ${result.new_filename}`;
+            selectedGuids.forEach(globalId => unhighlightElement(model.modelID, globalId));
+            selectedGuids.clear();
+            updateSelectedElementsList();
+            document.getElementById("clear-selection").classList.add('hidden');
+            document.getElementById("submit-btn").classList.add('hidden');
+          } else {
+            const error = await res.json();
+            document.getElementById("status").textContent = `Fehler: ${error.detail || error.message}`;
+          }
+        } catch (error) {
+          console.error('Fehler beim Absenden:', error);
+          document.getElementById("status").textContent = 'Absenden fehlgeschlagen: ' + error.message;
+        }
+      });
 
-        const result = await res.json();
-        alert("Reusable components saved!" + JSON.stringify(result));
+      // Event-Listener zum Zurücksetzen der Auswahl
+      document.getElementById("clear-selection").addEventListener("click", () => {
+        selectedGuids.forEach(globalId => unhighlightElement(model.modelID, globalId));
+        selectedGuids.clear();
+        updateSelectedElementsList();
+        document.getElementById("clear-selection").classList.add('hidden');
+        document.getElementById("submit-btn").classList.add('hidden');
+        document.getElementById("status").textContent = 'Auswahl zurückgesetzt.';
       });
     }
 
+    // Element hervorheben
+    function highlightElement(modelID, elementID) {
+      const material = new THREE.MeshBasicMaterial({ color: 0xFF0000, transparent: true, opacity: 0.7 });
+      ifcLoader.ifcManager.setMaterial(modelID, elementID, material);
+    }
+
+    // Hervorhebung entfernen
+    function unhighlightElement(modelID, elementID) {
+      ifcLoader.ifcManager.removeMaterial(modelID, elementID);
+    }
+
+    // Liste der ausgewählten Elemente aktualisieren
+    function updateSelectedElementsList() {
+      const list = document.getElementById('selected-elements');
+      list.innerHTML = Array.from(selectedGuids)
+        .map(id => `<li class="flex justify-between items-center">${id} <button class="text-red-500 hover:text-red-700 text-sm" onclick="removeElement('${id}')">Entfernen</button></li>`)
+        .join('');
+    }
+
+    // Element aus der Auswahl entfernen
+    window.removeElement = function(id) {
+      if (selectedGuids.has(id)) {
+        unhighlightElement(model.modelID, id);
+        selectedGuids.delete(id);
+        updateSelectedElementsList();
+        if (selectedGuids.size === 0) {
+          document.getElementById("clear-selection").classList.add('hidden');
+          document.getElementById("submit-btn").classList.add('hidden');
+        }
+      }
+    }
+
+    // Animationsschleife
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
+
+    // Fenstergröße anpassen
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </head>
-<body>
-  <div style="position: absolute; z-index: 10; background: white; padding: 10px;">
-    <label for="filename">IFC Filename:</label>
-    <input type="text" id="filename" placeholder="example.ifc">
-    <input type="file" id="ifc-file">
-    <button id="submit-btn">Mark Reusable</button>
+<body class="bg-gray-100">
+  <!-- Steuerungsleiste -->
+  <div class="absolute z-10 bg-white p-4 rounded shadow-md m-4 w-96">
+    <h2 class="text-lg font-bold mb-2">IFC Wiederverwendung</h2>
+    <form id="upload-form" enctype="multipart/form-data">
+      <div class="mb-2">
+        <label for="project-name" class="block text-sm font-medium">Projektname:</label>
+        <input type="text" id="project-name" name="projectName" placeholder="Testprojekt" class="w-full p-1 border rounded">
+      </div>
+      <div class="mb-2">
+        <label for="location" class="block text-sm font-medium">Standort:</label>
+        <input type="text" id="location" name="location" placeholder="Teststandort" class="w-full p-1 border rounded">
+      </div>
+      <div class="mb-2">
+        <label for="ifc-file" class="block text-sm font-medium">IFC-Datei:</label>
+        <input type="file" id="ifc-file" name="file" accept=".ifc" class="w-full p-1 border rounded">
+      </div>
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Datei hochladen</button>
+    </form>
+    <div id="progress-container" class="hidden mb-2">
+      <div id="progress" class="bg-blue-500 h-2 rounded" style="width: 0%;"></div>
+    </div>
+    <p id="status" class="text-sm text-gray-600 mb-2"></p>
+    <div class="mb-2">
+      <h3 class="text-sm font-medium">Ausgewählte Elemente:</h3>
+      <ul id="selected-elements" class="list-disc pl-5 max-h-40 overflow-y-auto"></ul>
+    </div>
+    <div class="flex space-x-2">
+      <button id="submit-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 hidden">Markieren</button>
+        Als wiederverwendbar markieren
+      </button>
+      <button id="clear-selection" class="hidden bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+        Auswahl zurücksetzen
+      </button>
+    </div>
   </div>
-  <div id="viewer" style="width: 100vw; height: 100vh;"></div>
+  <!-- Viewer-Bereich -->
+  <div id="viewer" class="w-full h-screen"></div>
 </body>
 </html>
